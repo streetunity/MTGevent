@@ -1,11 +1,12 @@
 import React, { useLayoutEffect } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { createEvent, defaultTitle } from '../core/eventOps';
 import { TournamentEvent } from '../core/types';
 import { computeStandings } from '../core/standings';
 import { currentSeason, daysLeft, seasonLabel, seasonRange } from '../core/seasons';
 import { useStore } from '../data/store';
+import { cancelRoundAlerts } from '../timer/alerts';
 import { Button, Card, Muted } from '../ui/components';
 import { colors, space } from '../ui/theme';
 import type { RootStack } from '../../App';
@@ -34,6 +35,14 @@ export default function HomeScreen({ navigation }: Props) {
 
   const open = (ev: TournamentEvent) =>
     navigation.navigate(ev.status === 'setup' ? 'Setup' : 'Event', { eventId: ev.id });
+
+  const askDelete = (ev: TournamentEvent) =>
+    Alert.alert(`Delete “${ev.title}”?`, ev.status === 'setup'
+      ? 'This event hasn’t started. Its player list is removed; players stay in your roster.'
+      : 'All rounds and results in this event are permanently removed, and players’ stats from it disappear. Players stay in your roster.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { if (ev.status === 'running') cancelRoundAlerts(); store.deleteEvent(ev.id); } },
+    ]);
 
   const live = events.filter((e) => e.status !== 'complete');
   const past = events.filter((e) => e.status === 'complete');
@@ -68,12 +77,13 @@ export default function HomeScreen({ navigation }: Props) {
               <Button title="Leaderboard" kind="secondary" onPress={() => navigation.navigate('Leaderboard')} style={{ flex: 1 }} />
             </View>
             {events.length === 0 && <Muted style={{ textAlign: 'center', marginTop: space(8) }}>No events yet. Tap “New event” to get started.</Muted>}
+            {events.length > 0 && <Muted style={{ textAlign: 'center', fontSize: 12 }}>Press and hold an event to delete it.</Muted>}
           </View>
         }
         renderItem={({ item, index }) => (
           <>
             {index === live.length && past.length > 0 && <Text style={{ color: colors.muted, fontWeight: '700', marginTop: space(3) }}>PAST EVENTS</Text>}
-            <EventRow ev={item} onPress={() => open(item)} />
+            <EventRow ev={item} onPress={() => open(item)} onLongPress={() => askDelete(item)} />
           </>
         )}
       />
@@ -81,7 +91,7 @@ export default function HomeScreen({ navigation }: Props) {
   );
 }
 
-function EventRow({ ev, onPress }: { ev: TournamentEvent; onPress: () => void }) {
+function EventRow({ ev, onPress, onLongPress }: { ev: TournamentEvent; onPress: () => void; onLongPress: () => void }) {
   const { nameOf } = useStore();
   const date = new Date(ev.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   let status = '';
@@ -94,7 +104,7 @@ function EventRow({ ev, onPress }: { ev: TournamentEvent; onPress: () => void })
     status = top.length ? `Winner: ${top.join(', ')}` : 'Complete';
   }
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={400}>
       <Card style={ev.status === 'running' ? { borderColor: colors.accent } : undefined}>
         <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>{ev.title}</Text>
         <Muted style={{ marginTop: 2 }}>{date} · {ev.players.length} players</Muted>

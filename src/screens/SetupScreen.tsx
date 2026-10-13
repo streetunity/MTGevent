@@ -1,5 +1,5 @@
 // One-screen event setup: title, collapsible settings, and the player list.
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { addPlayer, removePlayer, startEvent, updateSettings } from '../core/eventOps';
@@ -32,6 +32,30 @@ export default function SetupScreen({ route, navigation }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  const confirmDelete = () =>
+    Alert.alert('Delete this event?', 'The event and its player list are removed. Players stay in your roster.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { store.deleteEvent(route.params.eventId); navigation.goBack(); } },
+    ]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={confirmDelete} hitSlop={12} style={{ paddingHorizontal: space(1) }}>
+          <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 15 }}>Delete</Text>
+        </Pressable>
+      ),
+    });
+  });
+
+  // leaving setup with nobody added? quietly throw the empty event away
+  const evRef = useRef(ev);
+  evRef.current = ev;
+  useEffect(() => navigation.addListener('beforeRemove', () => {
+    const cur = evRef.current;
+    if (cur && cur.status === 'setup' && cur.players.length === 0) store.deleteEvent(cur.id);
+  }), [navigation, store.deleteEvent]);
 
   const suggestions = useMemo(() => {
     const q = norm(name).toLowerCase();
