@@ -27,16 +27,23 @@ db.execSync(`
   );
 `);
 
+// migrations
+const cols = db.getAllSync<{ name: string }>('PRAGMA table_info(players)').map((c) => c.name);
+if (!cols.includes('legacy')) db.execSync('ALTER TABLE players ADD COLUMN legacy TEXT');
+
 export function loadPlayers(): Player[] {
   return db
-    .getAllSync<{ id: string; name: string; created_at: number; updated_at: number }>('SELECT * FROM players ORDER BY name COLLATE NOCASE')
-    .map((r) => ({ id: r.id, name: r.name, createdAt: r.created_at, updatedAt: r.updated_at }));
+    .getAllSync<{ id: string; name: string; created_at: number; updated_at: number; legacy: string | null }>('SELECT * FROM players ORDER BY name COLLATE NOCASE')
+    .map((r) => ({
+      id: r.id, name: r.name, createdAt: r.created_at, updatedAt: r.updated_at,
+      ...(r.legacy ? { legacy: JSON.parse(r.legacy) } : {}),
+    }));
 }
 
 export function savePlayer(p: Player) {
   db.runSync(
-    'INSERT INTO players (id, name, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at',
-    p.id, p.name, p.createdAt, p.updatedAt,
+    'INSERT INTO players (id, name, created_at, updated_at, legacy) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at, legacy = excluded.legacy',
+    p.id, p.name, p.createdAt, p.updatedAt, p.legacy ? JSON.stringify(p.legacy) : null,
   );
 }
 

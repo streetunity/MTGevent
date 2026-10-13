@@ -3,11 +3,19 @@
 
 export type Id = string;
 
+export interface LegacyStats {
+  /** total points earned before this app (e.g. from MTGevent.com) */
+  points: number;
+  /** number of events played before this app */
+  events: number;
+}
+
 export interface Player {
   id: Id;
   name: string;
   createdAt: number;
   updatedAt: number;
+  legacy?: LegacyStats;
 }
 
 export type Format = 'constructed' | 'draft' | 'sealed' | 'commander';

@@ -26,7 +26,7 @@
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
-    "test": "tsx --test src/core/*.test.ts",
+    "test": "tsx --test src/core/core.test.ts src/core/legacy.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "private": true
