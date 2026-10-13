@@ -6,6 +6,7 @@ import { LegacyOrder, parseLegacy } from '../core/legacy';
 import { useStore } from '../data/store';
 import { Button, Card, Field, Label, Muted, Segmented } from '../ui/components';
 import { colors, space } from '../ui/theme';
+import { legacySummary } from '../data/history';
 import type { RootStack } from '../../App';
 
 type Props = NativeStackScreenProps<RootStack, 'ImportLegacy'>;
@@ -34,15 +35,24 @@ export default function ImportLegacyScreen({ navigation }: Props) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: space(4), paddingBottom: space(16) }} keyboardShouldPersistTaps="handled">
       <Muted>
-        Paste one player per line: name, total points, number of events. Copying rows straight from a spreadsheet works, or type it like{' '}
-        <Text style={{ color: colors.text }}>Mike S, 142, 18</Text>.
+        Paste your standings table including the header row (e.g. Rank · Player · Events · W–L · Points · 1st Places). Columns are matched by name. Without a header, use one line per player like{' '}
+        <Text style={{ color: colors.text }}>Mike S, 142, 18</Text> (name, points, events).
       </Muted>
 
-      <Label>Column order</Label>
-      <Segmented
-        options={[{ label: 'Name · Points · Events', value: 'points-events' }, { label: 'Name · Events · Points', value: 'events-points' }]}
-        value={order} onChange={(v) => setOrder(v as LegacyOrder)}
-      />
+      {text.trim() !== '' && parsed.columns.length === 0 && (
+        <>
+          <Label>Column order (no header found)</Label>
+          <Segmented
+            options={[{ label: 'Name · Points · Events', value: 'points-events' }, { label: 'Name · Events · Points', value: 'events-points' }]}
+            value={order} onChange={(v) => setOrder(v as LegacyOrder)}
+          />
+        </>
+      )}
+      {parsed.columns.length > 0 && (
+        <Muted style={{ marginTop: space(3), color: colors.accent }}>
+          Header found · reading {parsed.columns.map((c) => ({ name: 'Player', points: 'Points', events: 'Events', record: 'W–L', wins: 'Wins', losses: 'Losses', firsts: '1st Places' } as Record<string, string>)[c]).join(', ')}
+        </Muted>
+      )}
 
       <Label>Data</Label>
       <Field
@@ -77,7 +87,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
                       {existing ? (existing.legacy ? 'matches roster · replaces old legacy totals' : 'matches roster') : 'new player'}
                     </Muted>
                   </View>
-                  <Text style={{ color: colors.text, fontWeight: '800' }}>{r.points} pts · {r.events} ev</Text>
+                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13, maxWidth: '55%', textAlign: 'right' }}>{legacySummary(r)}</Text>
                 </Card>
               );
             })}
