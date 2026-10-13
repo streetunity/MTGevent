@@ -60,11 +60,18 @@ export function withLegacy(s: PlayerSummary | undefined, playerId: Id, legacy?: 
   };
 }
 
+/** Does this legacy record belong in a leaderboard range? */
+export function legacyInRange(l: LegacyStats, range: 'month' | 'year' | 'all', now = new Date()): boolean {
+  if (range === 'all') return true;
+  if (range === 'year') return l.year === now.getFullYear();
+  return false; // legacy has no month, so it never counts in "this month"
+}
+
 export function legacySummary(l: LegacyStats): string {
   const parts = [`${l.points} pts`, `${l.events} events`];
   if (l.wins !== undefined || l.losses !== undefined) parts.push(`${l.wins ?? 0}-${l.losses ?? 0}`);
   if (l.firsts) parts.push(`${l.firsts}× 1st`);
-  return parts.join(' · ');
+  return parts.join(' · ') + (l.year ? ` (${l.year})` : '');
 }
 
 export interface H2H { opponentId: Id; wins: number; losses: number; draws: number; matches: number }
@@ -120,6 +127,27 @@ export function headToHead(events: TournamentEvent[], playerId: Id): H2H[] {
     map.set(opp, h);
   }
   return [...map.values()].sort((a, b) => b.matches - a.matches);
+}
+
+export interface Rivals {
+  /** opponent this player has beaten the most */
+  easiest?: H2H;
+  /** opponent who has beaten this player the most */
+  toughest?: H2H;
+}
+
+/**
+ * "Easiest opponent" = most match wins against them (ties: better win rate,
+ * then more matches). "Biggest challenge" = most losses to them (same idea).
+ * Only counts matches played in the app. The same opponent can't be both.
+ */
+export function rivals(h2h: H2H[]): Rivals {
+  const rate = (a: number, h: H2H) => a / h.matches;
+  const easiest = [...h2h].filter((h) => h.wins > 0 && h.wins > h.losses)
+    .sort((a, b) => b.wins - a.wins || rate(b.wins, b) - rate(a.wins, a) || b.matches - a.matches)[0];
+  const toughest = [...h2h].filter((h) => h.losses > 0 && h.losses > h.wins)
+    .sort((a, b) => b.losses - a.losses || rate(b.losses, b) - rate(a.losses, a) || b.matches - a.matches)[0];
+  return { easiest, toughest };
 }
 
 export interface PlayerEventResult { eventId: Id; title: string; date: number; place: number; tied: boolean; points: number; record: string; players: number }

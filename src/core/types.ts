@@ -12,6 +12,8 @@ export interface LegacyStats {
   wins?: number;
   losses?: number;
   firsts?: number;
+  /** calendar year these stats come from; undefined = undated (counts in all-time only) */
+  year?: number;
 }
 
 export interface Player {
