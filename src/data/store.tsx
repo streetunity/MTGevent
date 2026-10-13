@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { newId } from '../core/id';
-import { EventSettings, Player, TournamentEvent } from '../core/types';
+import { LegacyRow } from '../core/legacy';
+import { EventSettings, LegacyStats, Player, TournamentEvent } from '../core/types';
 import * as db from './db';
 
 interface Store {
@@ -11,6 +12,10 @@ interface Store {
   /** returns the existing player if the name matches (case-insensitive), else creates one */
   findOrCreatePlayer: (name: string) => Player;
   renamePlayer: (id: string, name: string) => void;
+  /** set or clear (undefined) a player's legacy totals */
+  setLegacy: (id: string, legacy: LegacyStats | undefined) => void;
+  /** create/match players by name and set their legacy totals; returns counts */
+  importLegacy: (rows: LegacyRow[]) => { updated: number; created: number };
   /** move all of `fromId`'s history onto `intoId` and delete `fromId` */
   mergePlayers: (fromId: string, intoId: string) => void;
   getEvent: (id: string) => TournamentEvent | undefined;
@@ -55,6 +60,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setLegacy = useCallback((id: string, legacy: LegacyStats | undefined) => {
+    setPlayers((ps) => ps.map((p) => {
+      if (p.id !== id) return p;
+      const next: Player = { ...p, updatedAt: Date.now() };
+      if (legacy) next.legacy = legacy; else delete next.legacy;
+      db.savePlayer(next);
+      return next;
+    }));
+  }, []);
+
+  const importLegacy = useCallback((rows: LegacyRow[]) => {
+    const byName = new Map(players.map((p) => [p.name.toLowerCase(), p]));
+    const now = Date.now();
+    let updated = 0, created = 0;
+    const out = new Map(players.map((p) => [p.id, p]));
+    for (const r of rows) {
+      const name = norm(r.name);
+      const legacy = { points: r.points, events: r.events };
+      const existing = byName.get(name.toLowerCase());
+      const p: Player = existing
+        ? { ...existing, legacy, updatedAt: now }
+        : { id: newId(), name, createdAt: now, updatedAt: now, legacy };
+      if (existing) updated++; else created++;
+      byName.set(name.toLowerCase(), p);
+      out.set(p.id, p);
+      db.savePlayer(p);
+    }
+    setPlayers(sortPlayers([...out.values()]));
+    return { updated, created };
+  }, [players]);
+
   const saveEvent = useCallback((ev: TournamentEvent) => {
     db.saveEvent(ev);
     setEvents((es) => {
@@ -81,11 +117,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return next;
     }));
     db.deletePlayer(fromId);
-    setPlayers((ps) => ps.filter((p) => p.id !== fromId));
+    setPlayers((ps) => {
+      const from = ps.find((p) => p.id === fromId);
+      return ps.filter((p) => p.id !== fromId).map((p) => {
+        if (p.id !== intoId || !from?.legacy) return p;
+        // combine legacy totals so nothing is lost
+        const legacy = {
+          points: (p.legacy?.points ?? 0) + from.legacy.points,
+          events: (p.legacy?.events ?? 0) + from.legacy.events,
+        };
+        const next = { ...p, legacy, updatedAt: Date.now() };
+        db.savePlayer(next);
+        return next;
+      });
+    });
   }, []);
 
   const value: Store = {
-    players, playersById, events, nameOf, findOrCreatePlayer, renamePlayer, mergePlayers,
+    players, playersById, events, nameOf, findOrCreatePlayer, renamePlayer, mergePlayers, setLegacy, importLegacy,
     getEvent: (id) => events.find((e) => e.id === id),
     saveEvent,
     deleteEvent: (id) => { db.deleteEvent(id); setEvents((es) => es.filter((e) => e.id !== id)); },
