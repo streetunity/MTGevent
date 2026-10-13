@@ -21,6 +21,14 @@ interface Store {
   getEvent: (id: string) => TournamentEvent | undefined;
   saveEvent: (ev: TournamentEvent) => void;
   deleteEvent: (id: string) => void;
+  /** remove imported legacy stats from every player */
+  clearAllLegacy: () => void;
+  /** delete every event (players and legacy stats stay) */
+  deleteAllEvents: () => void;
+  /** wipe players, events and settings */
+  resetAll: () => void;
+  getSetting: <T>(key: string) => T | undefined;
+  setSetting: (key: string, value: unknown) => void;
   lastSettings: () => Partial<EventSettings> | undefined;
   rememberSettings: (s: EventSettings) => void;
 }
@@ -145,6 +153,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     getEvent: (id) => events.find((e) => e.id === id),
     saveEvent,
     deleteEvent: (id) => { db.deleteEvent(id); setEvents((es) => es.filter((e) => e.id !== id)); },
+    clearAllLegacy: () => {
+      db.clearAllLegacy();
+      setPlayers((ps) => ps.map((p) => { if (!p.legacy) return p; const { legacy: _l, ...rest } = p; return rest; }));
+    },
+    deleteAllEvents: () => { db.deleteAllEvents(); setEvents([]); },
+    resetAll: () => { db.resetAll(); setEvents([]); setPlayers([]); },
+    getSetting: (key) => db.getSetting(key),
+    setSetting: (key, value) => db.setSetting(key, value),
     lastSettings: () => db.getSetting<Partial<EventSettings>>('lastSettings'),
     rememberSettings: (s) => db.setSetting('lastSettings', { ...s, autoRounds: true }),
   };

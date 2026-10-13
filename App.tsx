@@ -11,6 +11,7 @@ import RosterScreen from './src/screens/RosterScreen';
 import PlayerScreen from './src/screens/PlayerScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ImportLegacyScreen from './src/screens/ImportLegacyScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { colors } from './src/ui/theme';
 
 export type RootStack = {
@@ -21,6 +22,7 @@ export type RootStack = {
   Player: { playerId: string };
   Leaderboard: undefined;
   ImportLegacy: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStack>();
@@ -44,6 +46,7 @@ export default function App() {
             <Stack.Screen name="Player" component={PlayerScreen} options={{ title: 'Player' }} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
             <Stack.Screen name="ImportLegacy" component={ImportLegacyScreen} options={{ title: 'Import legacy stats' }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </StoreProvider>
