@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "MTG Events",
+    "slug": "mtgevent",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#061214",
+    "android": {
+      "package": "com.streetunity.mtgevent",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.WAKE_LOCK"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-sqlite",
+      ["expo-notifications", { "color": "#3FA39B" }]
+    ]
+  }
+}
