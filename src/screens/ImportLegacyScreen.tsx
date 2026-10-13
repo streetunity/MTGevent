@@ -1,8 +1,8 @@
 // Paste in totals from before the app (e.g. MTGevent.com): name, points, events.
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { LegacyOrder, parseLegacy } from '../core/legacy';
+import { csvUrl, LegacyOrder, parseLegacy } from '../core/legacy';
 import { useStore } from '../data/store';
 import { Button, Card, Field, Label, Muted, Segmented } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -16,6 +16,37 @@ export default function ImportLegacyScreen({ navigation }: Props) {
   const [text, setText] = useState('');
   const [order, setOrder] = useState<LegacyOrder>('points-events');
   const [helpOpen, setHelpOpen] = useState(true);
+  const [url, setUrl] = useState(() => store.getSetting<string>('legacyUrl') ?? '');
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchUrl = async () => {
+    const target = csvUrl(url);
+    setFetching(true);
+    setFetchError(null);
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20_000);
+      const res = await fetch(target, { signal: ctrl.signal, headers: { Accept: 'text/csv,text/plain,*/*' } });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(res.status === 401 || res.status === 403 || res.status === 404
+        ? `The link returned ${res.status}. If it's a Google Sheet, set sharing to “Anyone with the link”.`
+        : `The link returned an error (${res.status}).`);
+      const body = await res.text();
+      if (body.length > 2_000_000) throw new Error('That file is too large (over 2 MB).');
+      if (/^\s*<(!doctype|html)/i.test(body)) throw new Error('That link opened a web page, not a CSV file. For Google Sheets, share as “Anyone with the link” or use File → Share → Publish to web → CSV.');
+      setText(body);
+      setHelpOpen(false);
+      store.setSetting('legacyUrl', url.trim());
+    } catch (e: any) {
+      const msg = e?.name === 'AbortError' ? 'The link took too long to respond.'
+        : /network request failed/i.test(e?.message ?? '') ? 'Couldn’t reach that link. Check the internet connection — and the link must start with https://.'
+        : e?.message ?? 'Couldn’t download that link.';
+      setFetchError(msg);
+    } finally {
+      setFetching(false);
+    }
+  };
   const parsed = useMemo(() => parseLegacy(text, order), [text, order]);
   const byName = useMemo(() => new Map(store.players.map((p) => [p.name.toLowerCase(), p])), [store.players]);
 
@@ -51,6 +82,24 @@ export default function ImportLegacyScreen({ navigation }: Props) {
           Header found · reading {parsed.columns.map((c) => ({ name: 'Player', points: 'Points', events: 'Events', record: 'W–L', wins: 'Wins', losses: 'Losses', firsts: '1st Places' } as Record<string, string>)[c]).join(', ')}
         </Muted>
       )}
+
+      <Label>From a link (optional)</Label>
+      <View style={{ flexDirection: 'row', gap: space(2) }}>
+        <Field
+          value={url}
+          onChangeText={(t) => { setUrl(t); setFetchError(null); }}
+          placeholder="https://…/standings.csv or a Google Sheets link"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          onSubmitEditing={() => url.trim() && fetchUrl()}
+          style={{ flex: 1, fontSize: 14 }}
+        />
+        <Button title={fetching ? '…' : 'Fetch'} onPress={fetchUrl} disabled={!url.trim() || fetching} />
+      </View>
+      {fetching && <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2), marginTop: space(2) }}><ActivityIndicator color={colors.accent} /><Muted>Downloading…</Muted></View>}
+      {fetchError && <Text style={{ color: colors.warn, marginTop: space(2) }}>{fetchError}</Text>}
+      <Muted style={{ fontSize: 12, marginTop: space(1) }}>Works with a direct .csv link, a Google Sheet shared as “Anyone with the link”, or a Dropbox link. The file loads into the box below for you to check before importing.</Muted>
 
       <Label>Data</Label>
       <Field
@@ -120,7 +169,7 @@ function HowToImport({ open, onToggle }: { open: boolean; onToggle: () => void }
       </Pressable>
       {open && (
         <View>
-          <Step n={1}>Copy your old standings table <B>including the header row</B> — from a spreadsheet, Google Sheets, or the MTGevent standings page. Copying keeps the columns separate.</Step>
+          <Step n={1}>Copy your old standings table <B>including the header row</B> — from a spreadsheet, Google Sheets, or the MTGevent standings page. Copying keeps the columns separate. Or paste a <B>link to a .csv file</B> (or a shared Google Sheet) and tap Fetch.</Step>
           <Step n={2}>Paste it into the box below. Columns are matched by their header names, in any order:</Step>
           <View style={{ backgroundColor: colors.cardAlt, borderRadius: 8, padding: space(2.5), marginTop: space(2), borderWidth: 1, borderColor: colors.border }}>
             {EXAMPLE.map((row, i) => (

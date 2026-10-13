@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { createEvent, defaultTitle } from '../core/eventOps';
@@ -14,6 +14,16 @@ type Props = NativeStackScreenProps<RootStack, 'Home'>;
 export default function HomeScreen({ navigation }: Props) {
   const store = useStore();
   const { events } = store;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={12} style={{ paddingHorizontal: space(1) }}>
+          <Text style={{ color: colors.text, fontSize: 22 }}>⚙</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   const newEvent = () => {
     const ev = createEvent(defaultTitle(), store.lastSettings() ?? {});
