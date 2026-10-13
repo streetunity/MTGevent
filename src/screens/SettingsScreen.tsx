@@ -57,6 +57,13 @@ export default function SettingsScreen({ navigation }: Props) {
         ))}
       </Card>
 
+      <Label>Import</Label>
+      <Card style={{ marginBottom: space(4) }}>
+        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Import legacy stats</Text>
+        <Muted style={{ marginTop: space(1), marginBottom: space(3) }}>Bring over points, events, W–L and 1st places from MTGevent, a spreadsheet, or a CSV link.</Muted>
+        <Button title="Import legacy stats" onPress={() => navigation.navigate('ImportLegacy')} />
+      </Card>
+
       <Label>Clear data</Label>
       <Row
         title="Clear legacy stats"
