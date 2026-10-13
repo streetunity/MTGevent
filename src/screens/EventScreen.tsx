@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import {
@@ -152,9 +153,26 @@ function RoundTab({ ev, round, isCurrent, save, onPickRound }: {
             { text: 'End event', style: 'destructive', onPress: () => { cancelRoundAlerts(); save(finishEarly(ev)); } },
           ])} />
       )}
+      {isCurrent && <DeleteEventButton ev={ev} />}
 
       <ReportSheet ev={ev} match={reporting} onClose={() => setReporting(null)} save={save} />
     </ScrollView>
+  );
+}
+
+function DeleteEventButton({ ev }: { ev: TournamentEvent }) {
+  const store = useStore();
+  const navigation = useNavigation();
+  return (
+    <Button title="Delete event" kind="ghost" onPress={() =>
+      Alert.alert(`Delete “${ev.title}”?`, 'All rounds and results in this event are permanently removed, and players’ stats from it disappear. Players stay in your roster. This can’t be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => {
+          if (ev.status === 'running') cancelRoundAlerts();
+          navigation.goBack();
+          store.deleteEvent(ev.id);
+        } },
+      ])} />
   );
 }
 
