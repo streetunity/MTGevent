@@ -23,6 +23,7 @@ export default function RosterScreen({ navigation }: Props) {
         ListHeaderComponent={
           <View style={{ gap: space(2), marginBottom: space(2) }}>
             <Button title="Import legacy stats" kind="secondary" onPress={() => navigation.navigate('ImportLegacy')} />
+            {!players.some((p) => p.legacy) && <Muted style={{ fontSize: 12, textAlign: 'center' }}>Bring over points, events, W–L and 1st places from MTGevent or a spreadsheet.</Muted>}
             <Field value={q} onChangeText={setQ} placeholder={`Search ${players.length} players…`} />
           </View>
         }

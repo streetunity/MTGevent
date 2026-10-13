@@ -1,6 +1,6 @@
 // Paste in totals from before the app (e.g. MTGevent.com): name, points, events.
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LegacyOrder, parseLegacy } from '../core/legacy';
 import { useStore } from '../data/store';
@@ -15,6 +15,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
   const store = useStore();
   const [text, setText] = useState('');
   const [order, setOrder] = useState<LegacyOrder>('points-events');
+  const [helpOpen, setHelpOpen] = useState(true);
   const parsed = useMemo(() => parseLegacy(text, order), [text, order]);
   const byName = useMemo(() => new Map(store.players.map((p) => [p.name.toLowerCase(), p])), [store.players]);
 
@@ -34,10 +35,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: space(4), paddingBottom: space(16) }} keyboardShouldPersistTaps="handled">
-      <Muted>
-        Paste your standings table including the header row (e.g. Rank · Player · Events · W–L · Points · 1st Places). Columns are matched by name. Without a header, use one line per player like{' '}
-        <Text style={{ color: colors.text }}>Mike S, 142, 18</Text> (name, points, events).
-      </Muted>
+      <HowToImport open={helpOpen} onToggle={() => setHelpOpen((v) => !v)} />
 
       {text.trim() !== '' && parsed.columns.length === 0 && (
         <>
@@ -57,7 +55,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
       <Label>Data</Label>
       <Field
         value={text}
-        onChangeText={setText}
+        onChangeText={(t) => { setText(t); if (t.trim() && !text.trim()) setHelpOpen(false); }}
         multiline
         placeholder={'Mike S, 142, 18\nJo Ann, 97, 12\nDave, 30, 4'}
         autoCapitalize="none"
@@ -96,5 +94,56 @@ export default function ImportLegacyScreen({ navigation }: Props) {
         </>
       )}
     </ScrollView>
+  );
+}
+
+const EXAMPLE = [
+  ['Rank', 'Player', 'Events', 'W–L', 'Points', '1st Places'],
+  ['1', 'Danny', '10', '21–7', '63', '4'],
+  ['2', 'Brian', '11', '21–10', '63', '1'],
+  ['3', 'Eric', '9', '17–10', '51', '2'],
+];
+
+function HowToImport({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const Step = ({ n, children }: { n: number; children: React.ReactNode }) => (
+    <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(2) }}>
+      <Text style={{ color: colors.accent, fontWeight: '800', width: 18 }}>{n}.</Text>
+      <Text style={{ color: colors.text, flex: 1, fontSize: 14, lineHeight: 20 }}>{children}</Text>
+    </View>
+  );
+  const B = ({ children }: { children: React.ReactNode }) => <Text style={{ fontWeight: '800' }}>{children}</Text>;
+  return (
+    <Card style={{ borderColor: colors.accent }}>
+      <Pressable onPress={onToggle} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16, flex: 1 }}>ⓘ  How to import</Text>
+        <Text style={{ color: colors.accent, fontWeight: '700' }}>{open ? 'Hide' : 'Show'}</Text>
+      </Pressable>
+      {open && (
+        <View>
+          <Step n={1}>Copy your old standings table <B>including the header row</B> — from a spreadsheet, Google Sheets, or the MTGevent standings page. Copying keeps the columns separate.</Step>
+          <Step n={2}>Paste it into the box below. Columns are matched by their header names, in any order:</Step>
+          <View style={{ backgroundColor: colors.cardAlt, borderRadius: 8, padding: space(2.5), marginTop: space(2), borderWidth: 1, borderColor: colors.border }}>
+            {EXAMPLE.map((row, i) => (
+              <View key={i} style={{ flexDirection: 'row' }}>
+                {row.map((c, j) => (
+                  <Text key={j} numberOfLines={1} style={{
+                    color: i === 0 ? colors.accent : colors.text, fontWeight: i === 0 ? '700' : '400',
+                    fontFamily: 'monospace', fontSize: 11, flex: j === 1 ? 1.6 : j === 5 ? 1.4 : 1,
+                  }}>{c}</Text>
+                ))}
+              </View>
+            ))}
+          </View>
+          <Muted style={{ fontSize: 12, marginTop: space(1.5) }}>
+            Needed: <B>Player</B> plus <B>Points</B> and/or <B>Events</B>. Optional: <B>W–L</B> (or Wins + Losses) and <B>1st Places</B>. Rank and anything else is ignored.
+          </Muted>
+          <Step n={3}>Check the preview. <B>Names must match your roster exactly</B> (capital letters don’t matter) — anyone shown as “new player” who should match, fix the name in your table first. “Brian StreetUnity” and “Brian” are two different players.</Step>
+          <Step n={4}>Tap <B>Import</B>. You can fix any player later from their page → Legacy stats.</Step>
+          <Muted style={{ fontSize: 12, marginTop: space(3) }}>
+            No header? One player per line also works: <Text style={{ color: colors.text }}>Mike S, 142, 18</Text> (name, points, events).
+          </Muted>
+        </View>
+      )}
+    </Card>
   );
 }
