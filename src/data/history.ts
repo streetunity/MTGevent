@@ -61,10 +61,10 @@ export function withLegacy(s: PlayerSummary | undefined, playerId: Id, legacy?: 
 }
 
 /** Does this legacy record belong in a leaderboard range? */
-export function legacyInRange(l: LegacyStats, range: 'month' | 'year' | 'all', now = new Date()): boolean {
+export function legacyInRange(l: LegacyStats, range: 'season' | 'month' | 'year' | 'all', now = new Date()): boolean {
   if (range === 'all') return true;
   if (range === 'year') return l.year === now.getFullYear();
-  return false; // legacy has no month, so it never counts in "this month"
+  return false; // legacy has no month or season, so it never counts there
 }
 
 export function legacySummary(l: LegacyStats): string {
