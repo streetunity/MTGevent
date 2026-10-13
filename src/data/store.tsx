@@ -1,6 +1,8 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 import { newId } from '../core/id';
 import { LegacyRow } from '../core/legacy';
+import { DEFAULT_SEASONS, extendSeasons, SeasonSettings } from '../core/seasons';
 import { EventSettings, LegacyStats, Player, TournamentEvent } from '../core/types';
 import * as db from './db';
 
@@ -29,6 +31,9 @@ interface Store {
   resetAll: () => void;
   getSetting: <T>(key: string) => T | undefined;
   setSetting: (key: string, value: unknown) => void;
+  /** season configuration (auto-extended so a season always covers today) */
+  seasons: SeasonSettings;
+  saveSeasons: (s: SeasonSettings) => void;
   lastSettings: () => Partial<EventSettings> | undefined;
   rememberSettings: (s: EventSettings) => void;
 }
@@ -40,6 +45,28 @@ export const norm = (s: string) => s.trim().replace(/\s+/g, ' ');
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [players, setPlayers] = useState<Player[]>(() => db.loadPlayers());
   const [events, setEvents] = useState<TournamentEvent[]>(() => db.loadEvents());
+  const [seasons, setSeasons] = useState<SeasonSettings>(() => {
+    const stored = db.getSetting<SeasonSettings>('seasons') ?? DEFAULT_SEASONS;
+    const ext = extendSeasons(stored);
+    if (ext !== stored) db.setSetting('seasons', ext);
+    return ext;
+  });
+  const saveSeasons = useCallback((s: SeasonSettings) => {
+    const ext = extendSeasons(s);
+    db.setSetting('seasons', ext);
+    setSeasons(ext);
+  }, []);
+  // roll over to the next season if the app was left open (or in the background) past a season's end
+  useEffect(() => {
+    const roll = () => setSeasons((cur) => {
+      const ext = extendSeasons(cur);
+      if (ext !== cur) db.setSetting('seasons', ext);
+      return ext;
+    });
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') roll(); });
+    const t = setInterval(roll, 60 * 60 * 1000);
+    return () => { sub.remove(); clearInterval(t); };
+  }, []);
 
   const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const nameOf = useCallback((id: string) => playersById.get(id)?.name ?? 'Unknown', [playersById]);
@@ -161,7 +188,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPlayers((ps) => ps.map((p) => { if (!p.legacy) return p; const { legacy: _l, ...rest } = p; return rest; }));
     },
     deleteAllEvents: () => { db.deleteAllEvents(); setEvents([]); },
-    resetAll: () => { db.resetAll(); setEvents([]); setPlayers([]); },
+    resetAll: () => { db.resetAll(); setEvents([]); setPlayers([]); setSeasons(DEFAULT_SEASONS); },
+    seasons,
+    saveSeasons,
     getSetting: (key) => db.getSetting(key),
     setSetting: (key, value) => db.setSetting(key, value),
     lastSettings: () => db.getSetting<Partial<EventSettings>>('lastSettings'),
