@@ -8,6 +8,10 @@ export interface LegacyStats {
   points: number;
   /** number of events played before this app */
   events: number;
+  /** optional match record and 1st places from before this app */
+  wins?: number;
+  losses?: number;
+  firsts?: number;
 }
 
 export interface Player {

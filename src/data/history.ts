@@ -3,7 +3,7 @@
 import { pairKey } from '../core/pairing';
 import { matchPoints } from '../core/scoring';
 import { computeStandings } from '../core/standings';
-import { Id, TournamentEvent } from '../core/types';
+import { Id, LegacyStats, TournamentEvent } from '../core/types';
 
 /**
  * Penalty for pairing a and b, based on how many times they met in their
@@ -38,6 +38,33 @@ export interface PlayerSummary {
   points: number;
   firsts: number;
   prizeFinishes: number;
+}
+
+export const emptySummary = (playerId: Id): PlayerSummary => ({
+  playerId, events: 0, matches: 0, wins: 0, losses: 0, draws: 0, gamesWon: 0, gamesLost: 0, points: 0, firsts: 0, prizeFinishes: 0,
+});
+
+/** App stats plus imported legacy totals (legacy has no game scores or prize finishes). */
+export function withLegacy(s: PlayerSummary | undefined, playerId: Id, legacy?: LegacyStats): PlayerSummary {
+  const base = s ?? emptySummary(playerId);
+  if (!legacy) return base;
+  const w = legacy.wins ?? 0, l = legacy.losses ?? 0;
+  return {
+    ...base,
+    events: base.events + legacy.events,
+    points: base.points + legacy.points,
+    wins: base.wins + w,
+    losses: base.losses + l,
+    matches: base.matches + w + l,
+    firsts: base.firsts + (legacy.firsts ?? 0),
+  };
+}
+
+export function legacySummary(l: LegacyStats): string {
+  const parts = [`${l.points} pts`, `${l.events} events`];
+  if (l.wins !== undefined || l.losses !== undefined) parts.push(`${l.wins ?? 0}-${l.losses ?? 0}`);
+  if (l.firsts) parts.push(`${l.firsts}× 1st`);
+  return parts.join(' · ');
 }
 
 export interface H2H { opponentId: Id; wins: number; losses: number; draws: number; matches: number }
