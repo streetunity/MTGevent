@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { createEvent, defaultTitle } from '../core/eventOps';
 import { TournamentEvent } from '../core/types';
 import { computeStandings } from '../core/standings';
+import { currentSeason, daysLeft, seasonLabel, seasonRange } from '../core/seasons';
 import { useStore } from '../data/store';
 import { Button, Card, Muted } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -45,6 +46,22 @@ export default function HomeScreen({ navigation }: Props) {
         keyExtractor={(e) => e.id}
         ListHeaderComponent={
           <View style={{ gap: space(3), marginBottom: space(2) }}>
+            {(() => {
+              const cur = currentSeason(store.seasons);
+              if (!cur) return null;
+              const left = daysLeft(cur);
+              return (
+                <Pressable onPress={() => navigation.navigate('Leaderboard')}>
+                  <Card style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space(3), borderColor: colors.accent }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16 }}>{seasonLabel(cur)}</Text>
+                      <Muted style={{ fontSize: 12 }}>{seasonRange(cur)} · {left} day{left === 1 ? '' : 's'} left</Muted>
+                    </View>
+                    <Text style={{ color: colors.accent, fontWeight: '700' }}>Standings ›</Text>
+                  </Card>
+                </Pressable>
+              );
+            })()}
             <Button title="+ New event" onPress={newEvent} />
             <View style={{ flexDirection: 'row', gap: space(3) }}>
               <Button title="Players" kind="secondary" onPress={() => navigation.navigate('Roster')} style={{ flex: 1 }} />

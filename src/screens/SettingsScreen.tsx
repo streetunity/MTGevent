@@ -1,10 +1,14 @@
 // App settings and data management (clear / delete / reset).
 import React, { useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {
+  addDays, currentSeason, daysLeft, endCurrentSeasonNow, extendSeasons, renameSeason, seasonLabel, seasonRange,
+  setSeasonLength, startOfDay, startSeasons,
+} from '../core/seasons';
 import { useStore } from '../data/store';
 import { cancelRoundAlerts } from '../timer/alerts';
-import { Button, Card, Field, Label, Muted, Sheet, styles as ui } from '../ui/components';
+import { Button, Card, Chip, Field, Label, Muted, PromptModal, Sheet, Stepper, styles as ui } from '../ui/components';
 import { colors, space } from '../ui/theme';
 import type { RootStack } from '../../App';
 
@@ -57,6 +61,9 @@ export default function SettingsScreen({ navigation }: Props) {
         ))}
       </Card>
 
+      <Label>Seasons</Label>
+      <SeasonsCard />
+
       <Label>Import</Label>
       <Card style={{ marginBottom: space(4) }}>
         <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Import legacy stats</Text>
@@ -98,5 +105,121 @@ export default function SettingsScreen({ navigation }: Props) {
         </View>
       </Sheet>
     </ScrollView>
+  );
+}
+
+const LENGTHS = [4, 6, 8, 12];
+const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+function LengthPicker({ weeks, onChange }: { weeks: number; onChange: (w: number) => void }) {
+  return (
+    <View style={{ gap: space(2) }}>
+      <View style={{ flexDirection: 'row', gap: space(2), flexWrap: 'wrap' }}>
+        {LENGTHS.map((w) => <Chip key={w} label={`${w} weeks`} selected={weeks === w} onPress={() => onChange(w)} />)}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
+        <Muted>Custom</Muted>
+        <Stepper value={weeks} min={1} max={52} suffix="wk" onChange={onChange} />
+      </View>
+    </View>
+  );
+}
+
+function SeasonsCard() {
+  const store = useStore();
+  const s = store.seasons;
+  const cur = currentSeason(s);
+  const [weeks, setWeeks] = useState(s.weeks || 8);
+  const [start, setStart] = useState(() => startOfDay(Date.now()));
+  const [renaming, setRenaming] = useState(false);
+
+  // ── not started yet ──
+  if (!s.seasons.length) {
+    const end = addDays(start, weeks * 7 - 1);
+    return (
+      <Card style={{ marginBottom: space(4) }}>
+        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Run your events in seasons</Text>
+        <Muted style={{ marginTop: space(1) }}>
+          Pick a length and a start date. When a season ends the next one starts automatically, and the leaderboard gets a standings view for each season.
+        </Muted>
+        <Label>Season length</Label>
+        <LengthPicker weeks={weeks} onChange={setWeeks} />
+        <Label>Season 1 starts</Label>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+          <Button small title="‹" kind="secondary" onPress={() => setStart(addDays(start, -1))} />
+          <Text style={{ color: colors.text, fontWeight: '700', flex: 1, textAlign: 'center' }}>{fmtDate(start)}</Text>
+          <Button small title="›" kind="secondary" onPress={() => setStart(addDays(start, 1))} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(2) }}>
+          <Button small title="Today" kind="ghost" onPress={() => setStart(startOfDay(Date.now()))} />
+          <Button small title="−1 week" kind="ghost" onPress={() => setStart(addDays(start, -7))} />
+          <Button small title="+1 week" kind="ghost" onPress={() => setStart(addDays(start, 7))} />
+        </View>
+        <Muted style={{ fontSize: 12, marginTop: space(2) }}>
+          Season 1 runs {fmtDate(start)} – {fmtDate(end)}. A start date in the past is fine — events already in the app that fall inside it will count.
+        </Muted>
+        <Button title="Start Season 1" onPress={() => store.saveSeasons(startSeasons(start, weeks))} style={{ marginTop: space(3) }} />
+      </Card>
+    );
+  }
+
+  // ── turned off (history kept) ──
+  if (!s.enabled) {
+    return (
+      <Card style={{ marginBottom: space(4) }}>
+        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Seasons are off</Text>
+        <Muted style={{ marginTop: space(1), marginBottom: space(3) }}>
+          {s.seasons.length} past season{s.seasons.length === 1 ? '' : 's'} saved. Turning seasons back on continues where you left off.
+        </Muted>
+        <Button title="Turn seasons back on" onPress={() => store.saveSeasons(extendSeasons({ ...s, enabled: true }))} />
+      </Card>
+    );
+  }
+
+  // ── running ──
+  const changeLength = (w: number) => {
+    setWeeks(w);
+    if (w === s.weeks) return;
+    Alert.alert(`Change to ${w}-week seasons?`, cur ? `Future seasons will be ${w} weeks. Should ${seasonLabel(cur)} change too?` : `Future seasons will be ${w} weeks.`, [
+      { text: 'Cancel', style: 'cancel', onPress: () => setWeeks(s.weeks) },
+      { text: 'Future only', onPress: () => store.saveSeasons(setSeasonLength(s, w, false)) },
+      ...(cur ? [{ text: 'Current too', onPress: () => store.saveSeasons(setSeasonLength(s, w, true)) }] : []),
+    ]);
+  };
+
+  return (
+    <Card style={{ marginBottom: space(4), borderColor: colors.accent }}>
+      {cur && (
+        <>
+          <Muted style={{ fontSize: 12 }}>CURRENT SEASON</Muted>
+          <Pressable onPress={() => setRenaming(true)}>
+            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 20 }}>{seasonLabel(cur)} <Text style={{ color: colors.muted, fontSize: 14 }}>✎</Text></Text>
+          </Pressable>
+          <Muted>{seasonRange(cur)} · {daysLeft(cur)} day{daysLeft(cur) === 1 ? '' : 's'} left</Muted>
+        </>
+      )}
+      <Label>Season length</Label>
+      <LengthPicker weeks={weeks} onChange={changeLength} />
+      <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(4) }}>
+        {cur && (
+          <Button small title="End season now" kind="secondary" style={{ flex: 1 }} onPress={() =>
+            Alert.alert(`End ${seasonLabel(cur)} today?`, `${seasonLabel(cur)} closes today and Season ${cur.number + 1} starts now.`, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'End season', style: 'destructive', onPress: () => store.saveSeasons(endCurrentSeasonNow(s)) },
+            ])} />
+        )}
+        <Button small title="Turn off seasons" kind="ghost" style={{ flex: 1 }} onPress={() =>
+          Alert.alert('Turn off seasons?', 'The leaderboard goes back to month / year / all-time. Past seasons are kept and you can turn this back on later.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Turn off', onPress: () => store.saveSeasons({ ...s, enabled: false }) },
+          ])} />
+      </View>
+      {cur && (
+        <PromptModal visible={renaming} title="Season name" initial={cur.name ?? ''} confirmLabel="Save"
+          extra={<Muted style={{ marginTop: space(2) }}>e.g. “Winter League”.</Muted>}
+          onCancel={() => setRenaming(false)}
+          onSubmit={(t) => { store.saveSeasons(renameSeason(s, cur.number, t)); setRenaming(false); }} />
+      )}
+    </Card>
   );
 }
