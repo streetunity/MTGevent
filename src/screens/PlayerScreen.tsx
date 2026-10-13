@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { eventResultsFor, headToHead, legacySummary, playerSummaries, withLegacy } from '../data/history';
+import { eventResultsFor, H2H, headToHead, legacySummary, playerSummaries, rivals, withLegacy } from '../data/history';
 import { useStore } from '../data/store';
 import { Button, Card, Field, Label, Muted, PromptModal, Sheet, styles as ui } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -22,6 +22,7 @@ export default function PlayerScreen({ route, navigation }: Props) {
   const s = useMemo(() => playerSummaries(store.events).get(id), [store.events, id]);
   const h2h = useMemo(() => headToHead(store.events, id), [store.events, id]);
   const results = useMemo(() => eventResultsFor(store.events, id), [store.events, id]);
+  const rv = useMemo(() => rivals(h2h), [h2h]);
 
   if (!player) return null;
   const legacy = player.legacy;
@@ -64,6 +65,15 @@ export default function PlayerScreen({ route, navigation }: Props) {
           <Text style={{ color: colors.accent, fontWeight: '700' }}>Edit</Text>
         </Card>
       </Pressable>
+
+      <Label>Rivals</Label>
+      <View style={{ flexDirection: 'row', gap: space(2) }}>
+        <RivalCard title="Easiest opponent" h={rv.easiest} name={rv.easiest && store.nameOf(rv.easiest.opponentId)} color={colors.win}
+          empty="Win a match to see who you beat most" onPress={() => rv.easiest && navigation.push('Player', { playerId: rv.easiest.opponentId })} />
+        <RivalCard title="Biggest challenge" h={rv.toughest} name={rv.toughest && store.nameOf(rv.toughest.opponentId)} color={colors.danger}
+          empty="Nobody has your number yet" onPress={() => rv.toughest && navigation.push('Player', { playerId: rv.toughest.opponentId })} />
+      </View>
+      <Muted style={{ fontSize: 11, marginTop: space(1) }}>Based on matches played in the app.</Muted>
 
       <Label>Head to head</Label>
       {h2h.length === 0 && <Muted>No matches yet.</Muted>}
@@ -125,24 +135,43 @@ export default function PlayerScreen({ route, navigation }: Props) {
   );
 }
 
+function RivalCard({ title, h, name, color, empty, onPress }: {
+  title: string; h?: H2H; name?: string; color: string; empty: string; onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={{ flex: 1 }} disabled={!h}>
+      <Card style={{ flex: 1, paddingVertical: space(3), borderColor: h ? color : colors.border }}>
+        <Muted style={{ fontSize: 12 }}>{title}</Muted>
+        {h ? (
+          <>
+            <Text numberOfLines={1} style={{ color: colors.text, fontSize: 17, fontWeight: '800', marginTop: space(1) }}>{name}</Text>
+            <Text style={{ color, fontWeight: '700', marginTop: 2 }}>{h.wins}-{h.losses}{h.draws ? `-${h.draws}` : ''} vs them</Text>
+          </>
+        ) : <Muted style={{ fontSize: 12, marginTop: space(1) }}>{empty}</Muted>}
+      </Card>
+    </Pressable>
+  );
+}
+
 function LegacySheet({ visible, initial, onClose, onSave }: {
   visible: boolean; initial?: LegacyStats;
   onClose: () => void; onSave: (l: LegacyStats | undefined) => void;
 }) {
-  const [f, setF] = useState({ points: '', events: '', wins: '', losses: '', firsts: '' });
+  const [f, setF] = useState({ points: '', events: '', wins: '', losses: '', firsts: '', year: '' });
   React.useEffect(() => {
     if (!visible) return;
     const v = (n?: number) => (n === undefined ? '' : String(n));
-    setF({ points: v(initial?.points), events: v(initial?.events), wins: v(initial?.wins), losses: v(initial?.losses), firsts: v(initial?.firsts) });
+    setF({ points: v(initial?.points), events: v(initial?.events), wins: v(initial?.wins), losses: v(initial?.losses), firsts: v(initial?.firsts), year: initial ? v(initial.year) : String(new Date().getFullYear()) });
   }, [visible]);
   const n = (s: string) => (s.trim() === '' ? undefined : Number(s));
-  const vals = { points: n(f.points), events: n(f.events), wins: n(f.wins), losses: n(f.losses), firsts: n(f.firsts) };
+  const vals = { points: n(f.points), events: n(f.events), wins: n(f.wins), losses: n(f.losses), firsts: n(f.firsts), year: n(f.year) };
   const valid = vals.points !== undefined && vals.events !== undefined && Object.values(vals).every((x) => x === undefined || (Number.isFinite(x) && x >= 0));
   const save = () => {
     const l: LegacyStats = { points: vals.points!, events: Math.round(vals.events!) };
     if (vals.wins !== undefined) l.wins = Math.round(vals.wins);
     if (vals.losses !== undefined) l.losses = Math.round(vals.losses);
     if (vals.firsts !== undefined) l.firsts = Math.round(vals.firsts);
+    if (vals.year !== undefined) l.year = Math.round(vals.year);
     onSave(l);
   };
   const box = (key: keyof typeof f, label: string) => (
@@ -157,6 +186,7 @@ function LegacySheet({ visible, initial, onClose, onSave }: {
       <Muted style={{ marginBottom: space(2) }}>Totals from before this app. They’re added to this player’s stats.</Muted>
       <View style={{ flexDirection: 'row', gap: space(2) }}>{box('points', 'Points')}{box('events', 'Events')}</View>
       <View style={{ flexDirection: 'row', gap: space(2) }}>{box('wins', 'Wins')}{box('losses', 'Losses')}{box('firsts', '1st places')}</View>
+      <View style={{ flexDirection: 'row', gap: space(2) }}>{box('year', 'Year (blank = no specific year)')}</View>
       <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(4) }}>
         {initial && <Button title="Remove" kind="ghost" onPress={() => onSave(undefined)} />}
         <Button title="Cancel" kind="secondary" onPress={onClose} style={{ flex: 1 }} />

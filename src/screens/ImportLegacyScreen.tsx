@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'rea
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { csvUrl, LegacyOrder, parseLegacy } from '../core/legacy';
 import { useStore } from '../data/store';
-import { Button, Card, Field, Label, Muted, Segmented } from '../ui/components';
+import { Button, Card, Field, Label, Muted, Segmented, Stepper } from '../ui/components';
 import { colors, space } from '../ui/theme';
 import { legacySummary } from '../data/history';
 import type { RootStack } from '../../App';
@@ -16,6 +16,10 @@ export default function ImportLegacyScreen({ navigation }: Props) {
   const [text, setText] = useState('');
   const [order, setOrder] = useState<LegacyOrder>('points-events');
   const [helpOpen, setHelpOpen] = useState(true);
+  const thisYear = new Date().getFullYear();
+  const [period, setPeriod] = useState<'this' | 'other' | 'none'>('this');
+  const [otherYear, setOtherYear] = useState(thisYear - 1);
+  const year = period === 'this' ? thisYear : period === 'other' ? otherYear : undefined;
   const [url, setUrl] = useState(() => store.getSetting<string>('legacyUrl') ?? '');
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -53,7 +57,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
   const doImport = () => {
     const willOverwrite = parsed.rows.filter((r) => byName.get(r.name.toLowerCase())?.legacy).length;
     const go = () => {
-      const { updated, created } = store.importLegacy(parsed.rows);
+      const { updated, created } = store.importLegacy(parsed.rows, year);
       Alert.alert('Imported', `${updated} existing player${updated === 1 ? '' : 's'} updated, ${created} new player${created === 1 ? '' : 's'} added.`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]);
     };
@@ -122,6 +126,22 @@ export default function ImportLegacyScreen({ navigation }: Props) {
 
       {parsed.rows.length > 0 && (
         <>
+          <Label>What period do these stats cover?</Label>
+          <Segmented
+            options={[{ label: `This year (${thisYear})`, value: 'this' }, { label: 'Another year', value: 'other' }, { label: 'No specific year', value: 'none' }]}
+            value={period} onChange={(v) => setPeriod(v as typeof period)}
+          />
+          {period === 'other' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), marginTop: space(2) }}>
+              <Stepper value={otherYear} min={1993} max={thisYear} onChange={setOtherYear} />
+            </View>
+          )}
+          <Muted style={{ fontSize: 12, marginTop: space(1.5) }}>
+            {period === 'this' ? `Counts in the This year and All-time leaderboards, and every player total.`
+              : period === 'other' ? `Counts in All-time and every player total (and in This year during ${otherYear}).`
+              : 'Counts in All-time and every player total, but not in This year.'}
+          </Muted>
+
           <Label>Preview ({parsed.rows.length})</Label>
           <View style={{ gap: space(1.5) }}>
             {parsed.rows.map((r) => {
@@ -134,7 +154,7 @@ export default function ImportLegacyScreen({ navigation }: Props) {
                       {existing ? (existing.legacy ? 'matches roster · replaces old legacy totals' : 'matches roster') : 'new player'}
                     </Muted>
                   </View>
-                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13, maxWidth: '55%', textAlign: 'right' }}>{legacySummary(r)}</Text>
+                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13, maxWidth: '55%', textAlign: 'right' }}>{legacySummary({ ...r, year })}</Text>
                 </Card>
               );
             })}
