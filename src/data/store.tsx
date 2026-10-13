@@ -15,7 +15,7 @@ interface Store {
   /** set or clear (undefined) a player's legacy totals */
   setLegacy: (id: string, legacy: LegacyStats | undefined) => void;
   /** create/match players by name and set their legacy totals; returns counts */
-  importLegacy: (rows: LegacyRow[]) => { updated: number; created: number };
+  importLegacy: (rows: LegacyRow[], year?: number) => { updated: number; created: number };
   /** move all of `fromId`'s history onto `intoId` and delete `fromId` */
   mergePlayers: (fromId: string, intoId: string) => void;
   getEvent: (id: string) => TournamentEvent | undefined;
@@ -78,7 +78,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const importLegacy = useCallback((rows: LegacyRow[]) => {
+  const importLegacy = useCallback((rows: LegacyRow[], year?: number) => {
     const byName = new Map(players.map((p) => [p.name.toLowerCase(), p]));
     const now = Date.now();
     let updated = 0, created = 0;
@@ -89,6 +89,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (r.wins !== undefined) legacy.wins = r.wins;
       if (r.losses !== undefined) legacy.losses = r.losses;
       if (r.firsts !== undefined) legacy.firsts = r.firsts;
+      if (year !== undefined) legacy.year = year;
       const existing = byName.get(name.toLowerCase());
       const p: Player = existing
         ? { ...existing, legacy, updatedAt: now }
@@ -141,6 +142,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           losses: (a?.losses ?? 0) + (b.losses ?? 0),
           firsts: (a?.firsts ?? 0) + (b.firsts ?? 0),
         };
+        const y = a ? (a.year === b.year ? a.year : undefined) : b.year;
+        if (y !== undefined) legacy.year = y;
         const next = { ...p, legacy, updatedAt: Date.now() };
         db.savePlayer(next);
         return next;

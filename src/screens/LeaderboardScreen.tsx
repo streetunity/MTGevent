@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { playerSummaries, withLegacy } from '../data/history';
+import { legacyInRange, playerSummaries, withLegacy } from '../data/history';
 import { useStore } from '../data/store';
 import { Card, Muted, Segmented } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -25,12 +25,10 @@ export default function LeaderboardScreen({ navigation }: Props) {
       return true;
     };
     const sums = playerSummaries(events, filter);
-    if (range === 'all') {
-      // all-time totals include imported legacy points/events
-      for (const p of players) {
-        if (!p.legacy) continue;
-        sums.set(p.id, withLegacy(sums.get(p.id), p.id, p.legacy));
-      }
+    // imported legacy stats count in all-time, and in "this year" when tagged with this year
+    for (const p of players) {
+      if (!p.legacy || !legacyInRange(p.legacy, range, now)) continue;
+      sums.set(p.id, withLegacy(sums.get(p.id), p.id, p.legacy));
     }
     return [...sums.values()]
       .filter((s) => s.events > 0)
@@ -43,8 +41,11 @@ export default function LeaderboardScreen({ navigation }: Props) {
         <Segmented options={[{ label: 'This month', value: 'month' }, { label: 'This year', value: 'year' }, { label: 'All time', value: 'all' }]} value={range} onChange={(v) => setRange(v as Range)} />
         <Segmented options={[{ label: 'Points', value: 'points' }, { label: 'Match wins', value: 'wins' }, { label: 'Attendance', value: 'events' }]} value={sort} onChange={(v) => setSort(v as Sort)} />
       </View>
-      {range === 'all' && players.some((p) => p.legacy) && (
-        <Muted style={{ paddingHorizontal: space(4), marginBottom: space(2), fontSize: 12 }}>All-time includes imported legacy stats.</Muted>
+      {range !== 'month' && players.some((p) => p.legacy && legacyInRange(p.legacy, range)) && (
+        <Muted style={{ paddingHorizontal: space(4), marginBottom: space(2), fontSize: 12 }}>Includes imported legacy stats{range === 'year' ? ` from ${new Date().getFullYear()}` : ''}.</Muted>
+      )}
+      {range === 'month' && players.some((p) => p.legacy) && (
+        <Muted style={{ paddingHorizontal: space(4), marginBottom: space(2), fontSize: 12 }}>Legacy stats aren’t dated by month, so this view only counts events run in the app.</Muted>
       )}
       <FlatList
         contentContainerStyle={{ paddingHorizontal: space(4), paddingBottom: space(10), gap: space(2) }}
