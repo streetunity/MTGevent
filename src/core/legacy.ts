@@ -44,10 +44,29 @@ function headerCol(h: string): Col | null {
   return null;
 }
 
-/** Split a line into cells: tabs, then commas/semicolons, then runs of 2+ spaces. */
+/** Split a CSV line, honouring "quoted, fields" and "" escapes. */
+export function splitCsv(line: string, sep = ','): string[] {
+  const out: string[] = [];
+  let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') q = false;
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === sep) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+/** Split a line into cells: tabs, then commas/semicolons (CSV quoting aware), then runs of 2+ spaces. */
 function cells(line: string): string[] {
   if (line.includes('\t')) return line.split('\t').map((c) => c.trim());
-  if (/[,;]/.test(line)) return line.split(/[,;]/).map((c) => c.trim());
+  if (line.includes(',')) return splitCsv(line, ',');
+  if (line.includes(';')) return splitCsv(line, ';');
   if (/\s{2,}/.test(line)) return line.split(/\s{2,}/).map((c) => c.trim());
   return [line.trim()];
 }
@@ -59,6 +78,7 @@ const num = (s: string | undefined) => {
 };
 
 export function parseLegacy(text: string, order: LegacyOrder = 'points-events'): LegacyParseResult {
+  text = text.replace(/^﻿/, '');
   const lines = text.split(/\r?\n/).map((l, i) => ({ text: l.replace(/\s+$/, ''), n: i + 1 })).filter((l) => l.text.trim());
   const rows: LegacyRow[] = [];
   const errors: LegacyParseResult['errors'] = [];
@@ -114,4 +134,24 @@ export function parseLegacy(text: string, order: LegacyOrder = 'points-events'):
     push(order === 'points-events' ? { name, points: a, events: b } : { name, points: b, events: a });
   });
   return { rows, errors, columns: [] };
+}
+
+/**
+ * Turn a share link into a direct CSV download where we know how:
+ *  - Google Sheets edit/view links → export?format=csv (keeps the tab's gid)
+ *  - Dropbox ?dl=0 → ?dl=1
+ * Anything else is returned unchanged.
+ */
+export function csvUrl(input: string): string {
+  let url = input.trim();
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  const gs = url.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (gs && !/\/(export|pub)\b|output=csv/.test(url)) {
+    const gid = url.match(/[#&?]gid=(\d+)/)?.[1];
+    return `https://docs.google.com/spreadsheets/d/${gs[1]}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+  }
+  if (/^https:\/\/(www\.)?dropbox\.com\//.test(url)) {
+    return url.replace(/([?&])dl=0\b/, '$1dl=1') + (/[?&]dl=/.test(url) ? '' : (url.includes('?') ? '&dl=1' : '?dl=1'));
+  }
+  return url;
 }

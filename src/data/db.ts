@@ -77,6 +77,23 @@ export function setSetting(key: string, value: unknown) {
   db.runSync('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(value));
 }
 
+export function clearAllLegacy() {
+  db.runSync('UPDATE players SET legacy = NULL, updated_at = ?', Date.now());
+}
+
+export function deleteAllEvents() {
+  db.runSync('DELETE FROM events');
+}
+
+/** Wipe players, events and saved settings. */
+export function resetAll() {
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM events');
+    db.runSync('DELETE FROM players');
+    db.runSync('DELETE FROM settings');
+  });
+}
+
 /** Everything in one JSON blob, for backup/export. */
 export function exportAll() {
   return { version: 1, exportedAt: Date.now(), players: loadPlayers(), events: loadEvents() };

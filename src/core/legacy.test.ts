@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseLegacy } from './legacy';
+import { csvUrl, parseLegacy, splitCsv } from './legacy';
 
 test('parses spreadsheet paste with header', () => {
   const r = parseLegacy('Player\tPoints\tEvents\nMike S\t142\t18\nJo Ann Smith\t97\t12\n');
@@ -43,4 +43,22 @@ test('MTGevent-style table with header, W–L and 1st places', () => {
 test('header table pasted with spaces instead of tabs', () => {
   const r = parseLegacy('Player   Points   Events\nJo Ann   97   12\n');
   assert.deepEqual(r.rows, [{ name: 'Jo Ann', points: 97, events: 12 }]);
+});
+
+test('CSV with quotes and BOM', () => {
+  assert.deepEqual(splitCsv('1,"Smith, John",3,"2-1",6'), ['1', 'Smith, John', '3', '2-1', '6']);
+  const r = parseLegacy('﻿Rank,Player,Events,W–L,Points,1st Places\r\n1,"Smith, John",3,2–1,6,1\r\n');
+  assert.deepEqual(r.rows, [{ name: 'Smith, John', points: 6, events: 3, wins: 2, losses: 1, firsts: 1 }]);
+});
+
+test('csvUrl converts share links', () => {
+  assert.equal(
+    csvUrl('https://docs.google.com/spreadsheets/d/abc_123-X/edit#gid=456'),
+    'https://docs.google.com/spreadsheets/d/abc_123-X/export?format=csv&gid=456',
+  );
+  assert.equal(csvUrl('https://docs.google.com/spreadsheets/d/abc/edit?usp=sharing'), 'https://docs.google.com/spreadsheets/d/abc/export?format=csv');
+  const pub = 'https://docs.google.com/spreadsheets/d/e/2PACX-1/pub?output=csv';
+  assert.equal(csvUrl(pub), pub);
+  assert.equal(csvUrl('https://www.dropbox.com/s/x/stats.csv?dl=0'), 'https://www.dropbox.com/s/x/stats.csv?dl=1');
+  assert.equal(csvUrl('example.com/a.csv'), 'https://example.com/a.csv');
 });
