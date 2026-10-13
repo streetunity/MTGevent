@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { playerSummaries } from '../data/history';
+import { playerSummaries, withLegacy } from '../data/history';
 import { useStore } from '../data/store';
 import { Card, Muted, Segmented } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -29,8 +29,7 @@ export default function LeaderboardScreen({ navigation }: Props) {
       // all-time totals include imported legacy points/events
       for (const p of players) {
         if (!p.legacy) continue;
-        const s = sums.get(p.id) ?? { playerId: p.id, events: 0, matches: 0, wins: 0, losses: 0, draws: 0, gamesWon: 0, gamesLost: 0, points: 0, firsts: 0, prizeFinishes: 0 };
-        sums.set(p.id, { ...s, points: s.points + p.legacy.points, events: s.events + p.legacy.events });
+        sums.set(p.id, withLegacy(sums.get(p.id), p.id, p.legacy));
       }
     }
     return [...sums.values()]
@@ -45,7 +44,7 @@ export default function LeaderboardScreen({ navigation }: Props) {
         <Segmented options={[{ label: 'Points', value: 'points' }, { label: 'Match wins', value: 'wins' }, { label: 'Attendance', value: 'events' }]} value={sort} onChange={(v) => setSort(v as Sort)} />
       </View>
       {range === 'all' && players.some((p) => p.legacy) && (
-        <Muted style={{ paddingHorizontal: space(4), marginBottom: space(2), fontSize: 12 }}>All-time includes imported legacy points and events. Match wins only count events run in the app.</Muted>
+        <Muted style={{ paddingHorizontal: space(4), marginBottom: space(2), fontSize: 12 }}>All-time includes imported legacy stats.</Muted>
       )}
       <FlatList
         contentContainerStyle={{ paddingHorizontal: space(4), paddingBottom: space(10), gap: space(2) }}

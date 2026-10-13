@@ -77,7 +77,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const out = new Map(players.map((p) => [p.id, p]));
     for (const r of rows) {
       const name = norm(r.name);
-      const legacy = { points: r.points, events: r.events };
+      const legacy: LegacyStats = { points: r.points, events: r.events };
+      if (r.wins !== undefined) legacy.wins = r.wins;
+      if (r.losses !== undefined) legacy.losses = r.losses;
+      if (r.firsts !== undefined) legacy.firsts = r.firsts;
       const existing = byName.get(name.toLowerCase());
       const p: Player = existing
         ? { ...existing, legacy, updatedAt: now }
@@ -122,9 +125,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return ps.filter((p) => p.id !== fromId).map((p) => {
         if (p.id !== intoId || !from?.legacy) return p;
         // combine legacy totals so nothing is lost
-        const legacy = {
-          points: (p.legacy?.points ?? 0) + from.legacy.points,
-          events: (p.legacy?.events ?? 0) + from.legacy.events,
+        const a = p.legacy, b = from.legacy;
+        const legacy: LegacyStats = {
+          points: (a?.points ?? 0) + b.points,
+          events: (a?.events ?? 0) + b.events,
+          wins: (a?.wins ?? 0) + (b.wins ?? 0),
+          losses: (a?.losses ?? 0) + (b.losses ?? 0),
+          firsts: (a?.firsts ?? 0) + (b.firsts ?? 0),
         };
         const next = { ...p, legacy, updatedAt: Date.now() };
         db.savePlayer(next);

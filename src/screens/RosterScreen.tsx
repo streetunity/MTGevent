@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { playerSummaries } from '../data/history';
+import { legacySummary, playerSummaries } from '../data/history';
 import { useStore } from '../data/store';
 import { Button, Card, Field, Muted } from '../ui/components';
 import { colors, space } from '../ui/theme';
@@ -35,7 +35,7 @@ export default function RosterScreen({ navigation }: Props) {
                 <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>{item.name}</Text>
                 <Muted style={{ fontSize: 13 }}>
                   {s ? `${s.events} event${s.events === 1 ? '' : 's'} · ${s.wins}-${s.losses}${s.draws ? `-${s.draws}` : ''}${s.firsts ? ` · ${s.firsts}× 1st` : ''}` : 'No events in app yet'}
-                  {item.legacy ? ` · legacy ${item.legacy.points} pts / ${item.legacy.events} ev` : ''}
+                  {item.legacy ? `\nLegacy: ${legacySummary(item.legacy)}` : ''}
                 </Muted>
               </Card>
             </Pressable>
