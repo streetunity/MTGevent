@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { eventResultsFor, headToHead, playerSummaries } from '../data/history';
 import { useStore } from '../data/store';
-import { Button, Card, Label, Muted, PromptModal } from '../ui/components';
+import { Button, Card, Field, Label, Muted, PromptModal, Sheet, styles as ui } from '../ui/components';
 import { colors, space } from '../ui/theme';
 import type { RootStack } from '../../App';
 
@@ -17,11 +17,15 @@ export default function PlayerScreen({ route, navigation }: Props) {
   const player = store.playersById.get(id);
   const [renaming, setRenaming] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [editLegacy, setEditLegacy] = useState(false);
   const s = useMemo(() => playerSummaries(store.events).get(id), [store.events, id]);
   const h2h = useMemo(() => headToHead(store.events, id), [store.events, id]);
   const results = useMemo(() => eventResultsFor(store.events, id), [store.events, id]);
 
   if (!player) return null;
+  const legacy = player.legacy;
+  const totalEvents = (s?.events ?? 0) + (legacy?.events ?? 0);
+  const totalPoints = (s?.points ?? 0) + (legacy?.points ?? 0);
   const winPct = s && s.matches ? Math.round((s.wins / s.matches) * 100) : 0;
   const gamePct = s && s.gamesWon + s.gamesLost ? Math.round((s.gamesWon / (s.gamesWon + s.gamesLost)) * 100) : 0;
 
@@ -39,7 +43,7 @@ export default function PlayerScreen({ route, navigation }: Props) {
       </Pressable>
 
       <Card style={{ marginTop: space(3), flexDirection: 'row' }}>
-        <Stat label="events" value={s?.events ?? 0} />
+        <Stat label="events" value={totalEvents} />
         <Stat label="record" value={s ? `${s.wins}-${s.losses}` : '0-0'} />
         <Stat label="match win" value={`${winPct}%`} />
         <Stat label="game win" value={`${gamePct}%`} />
@@ -47,8 +51,19 @@ export default function PlayerScreen({ route, navigation }: Props) {
       <Card style={{ marginTop: space(2), flexDirection: 'row' }}>
         <Stat label="1st places" value={s?.firsts ?? 0} />
         <Stat label="prize finishes" value={s?.prizeFinishes ?? 0} />
-        <Stat label="total points" value={s?.points ?? 0} />
+        <Stat label="total points" value={totalPoints} />
       </Card>
+      <Pressable onPress={() => setEditLegacy(true)}>
+        <Card style={{ marginTop: space(2), flexDirection: 'row', alignItems: 'center', paddingVertical: space(3) }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Legacy stats</Text>
+            <Muted style={{ fontSize: 12 }}>
+              {legacy ? `${legacy.points} pts · ${legacy.events} events from before the app (included in totals above)` : 'None — tap to add points/events from before the app'}
+            </Muted>
+          </View>
+          <Text style={{ color: colors.accent, fontWeight: '700' }}>Edit</Text>
+        </Card>
+      </Pressable>
 
       <Label>Head to head</Label>
       {h2h.length === 0 && <Muted>No matches yet.</Muted>}
@@ -78,6 +93,12 @@ export default function PlayerScreen({ route, navigation }: Props) {
 
       <Button title="Merge into another player…" kind="ghost" style={{ marginTop: space(6) }} onPress={() => setMerging(true)} />
 
+      <LegacySheet
+        visible={editLegacy}
+        initial={legacy}
+        onClose={() => setEditLegacy(false)}
+        onSave={(l) => { store.setLegacy(id, l); setEditLegacy(false); }}
+      />
       <PromptModal visible={renaming} title="Rename player" initial={player.name}
         onCancel={() => setRenaming(false)}
         onSubmit={(t) => {
@@ -101,5 +122,39 @@ export default function PlayerScreen({ route, navigation }: Props) {
           navigation.replace('Player', { playerId: target.id });
         }} />
     </ScrollView>
+  );
+}
+
+function LegacySheet({ visible, initial, onClose, onSave }: {
+  visible: boolean; initial?: { points: number; events: number };
+  onClose: () => void; onSave: (l: { points: number; events: number } | undefined) => void;
+}) {
+  const [points, setPoints] = useState('');
+  const [events, setEvents] = useState('');
+  React.useEffect(() => {
+    if (visible) { setPoints(initial ? String(initial.points) : ''); setEvents(initial ? String(initial.events) : ''); }
+  }, [visible]);
+  const p = Number(points), e = Number(events);
+  const valid = points.trim() !== '' && events.trim() !== '' && Number.isFinite(p) && Number.isFinite(e) && e >= 0;
+  return (
+    <Sheet visible={visible} onClose={onClose}>
+      <Text style={ui.sheetTitle}>Legacy stats</Text>
+      <Muted style={{ marginBottom: space(2) }}>Totals from before this app. They’re added to this player’s points and events.</Muted>
+      <View style={{ flexDirection: 'row', gap: space(2) }}>
+        <View style={{ flex: 1 }}>
+          <Label>Points</Label>
+          <Field value={points} onChangeText={setPoints} keyboardType="numeric" placeholder="0" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Label>Events</Label>
+          <Field value={events} onChangeText={setEvents} keyboardType="numeric" placeholder="0" />
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(4) }}>
+        {initial && <Button title="Remove" kind="ghost" onPress={() => onSave(undefined)} />}
+        <Button title="Cancel" kind="secondary" onPress={onClose} style={{ flex: 1 }} />
+        <Button title="Save" onPress={() => onSave({ points: p, events: Math.round(e) })} disabled={!valid} style={{ flex: 1 }} />
+      </View>
+    </Sheet>
   );
 }
