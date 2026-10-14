@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061214">
+<title>MTG Event · League pairings, standings &amp; stats</title>
+<meta name="description" content="Live pairings, standings and season leaderboards for your Magic: The Gathering league.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+<link rel="stylesheet" href="/site.css?v=3">
+<style>
+  .home { max-width: 560px; margin: 0 auto; padding: 56px 16px 32px; text-align: center; }
+  .mark { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 18px; background: var(--card); border: 1px solid var(--border);
+          display: grid; place-items: center; font-size: 34px; box-shadow: 0 0 0 6px rgba(63, 163, 155, .08); }
+  .home h1 { font-size: clamp(34px, 8vw, 48px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; }
+  .home h1 span { color: var(--accent); }
+  .lead { color: var(--muted); font-size: 17px; line-height: 1.55; margin: 0 auto 28px; max-width: 440px; }
+  .go { text-align: left; }
+  .go .row { display: flex; align-items: stretch; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .go .row:focus-within { border-color: var(--accent); }
+  .go .prefix { display: flex; align-items: center; padding: 0 0 0 14px; color: var(--muted); font-size: 16px; white-space: nowrap; }
+  .go input { flex: 1; min-width: 0; font: inherit; font-size: 17px; color: var(--text); background: none; border: 0; outline: none; padding: 13px 6px; }
+  .go button { flex: 0 0 auto; border: 0; font: inherit; font-weight: 800; background: var(--accent); color: #04110F; padding: 0 18px; cursor: pointer; }
+  .go .hint { color: var(--muted); font-size: 13px; margin: 8px 2px 0; }
+  .features { margin-top: 28px; text-align: left; display: grid; gap: 14px; }
+  .feat { display: flex; gap: 12px; align-items: flex-start; }
+  .dot { flex: 0 0 auto; width: 10px; height: 10px; margin-top: 7px; border-radius: 50%; background: var(--accent); }
+  .feat b { display: block; font-weight: 700; }
+  .feat small { color: var(--muted); font-size: 14px; }
+  .organizers { margin-top: 18px; text-align: left; }
+  .organizers p { color: var(--muted); margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
+  .stores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .store { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 12px 8px;
+           border-radius: 12px; border: 1px dashed var(--border); background: var(--card2); color: var(--muted); cursor: default; text-align: center; }
+  .store b { color: var(--text); font-size: 16px; }
+  .store small { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+  @media (max-width: 340px) { .stores { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="home">
+  <div class="mark" aria-hidden="true">🃏</div>
+  <h1>MTG <span>Event</span></h1>
+  <p class="lead">Your league’s home for live pairings, standings and season leaderboards.</p>
+
+  <form class="go" id="go" autocomplete="off">
+    <label class="find" for="slug"><span>Find your league</span></label>
+    <div class="row">
+      <span class="prefix">mtg-event.com/</span>
+      <input id="slug" type="text" inputmode="url" autocapitalize="none" spellcheck="false" placeholder="your-league" aria-label="League web address">
+      <button type="submit">Go</button>
+    </div>
+    <p class="hint">Your organizer can tell you the address. Bookmark it once you’re there.</p>
+  </form>
+
+  <section class="card features">
+    <div class="feat"><div class="dot"></div><div><b>Live pairings &amp; round timer</b><small>Find your table from your phone and watch the clock during events.</small></div></div>
+    <div class="feat"><div class="dot"></div><div><b>Season standings</b><small>Who’s on top this season, plus past champions.</small></div></div>
+    <div class="feat"><div class="dot"></div><div><b>Player stats</b><small>Records, head-to-head, easiest opponent and biggest challenge.</small></div></div>
+  </section>
+
+  <section class="card organizers">
+    <b>Run a league?</b>
+    <p>Organizers run events from the MTG Event app: quick Swiss pairings, swaps and drops mid-event, a round timer with
+    an alarm, seasons, and co-hosts who can take over a night. Results show up here automatically.</p>
+    <div class="stores">
+      <div class="store" aria-disabled="true" title="Coming soon"><span>Get it on</span><b>Google Play</b><small>Coming soon</small></div>
+      <div class="store" aria-disabled="true" title="Coming soon"><span>Download on the</span><b>App Store</b><small>Coming soon</small></div>
+    </div>
+  </section>
+</main>
+<footer>
+  <span><a href="/privacy">Privacy</a> · <a href="/delete-account">Delete an organizer account</a></span>
+  <span>Not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.</span>
+</footer>
+<script>
+(function () {
+  var form = document.getElementById('go'), input = document.getElementById('slug');
+  // accept "tap-room", "mtg-event.com/tap-room", a full link, or "Tap Room"
+  function toSlug(v) {
+    v = v.trim().replace(/^https?:\/\//i, '').replace(/^(www\.)?mtg-event\.com\/?/i, '').split(/[?#]/)[0];
+    return v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var s = toSlug(input.value);
+    if (s) location.href = '/' + s; else input.focus();
+  });
+})();
+</script>
+</body>
+</html>
