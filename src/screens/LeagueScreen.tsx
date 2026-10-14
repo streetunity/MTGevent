@@ -247,7 +247,11 @@ function Connected() {
       <Card style={{ borderColor: colors.accent, marginBottom: space(4) }}>
         <Muted style={{ fontSize: 12 }}>SHARED LEAGUE · {owner ? 'OWNER' : 'ORGANIZER'}</Muted>
         <Text style={{ color: colors.text, fontWeight: '800', fontSize: 20 }}>{league.name}</Text>
-        <Muted style={{ marginTop: space(1) }}>Players’ page: {url.replace(/^https?:\/\//, '')} (website coming soon)</Muted>
+        <Text style={{ color: colors.muted, marginTop: space(1) }}>
+          Players’ page:{' '}
+          <Text style={{ color: colors.accent, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(url)}>{url.replace(/^https?:\/\//, '')}</Text>
+          {league.isPublic ? '' : ' (hidden)'}
+        </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space(3), gap: space(2) }}>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: statusColor }} />
           <Text style={{ color: colors.text, flex: 1 }}>{statusText}{sync.pending ? ` · ${sync.pending} change${sync.pending === 1 ? '' : 's'} waiting` : ''}</Text>
