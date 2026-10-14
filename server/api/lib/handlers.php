@@ -69,7 +69,65 @@ function h_me(): array
     return ['user' => ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name']], 'leagues' => array_map(fn($l) => [...$l, 'isPublic' => (bool) $l['isPublic']], my_leagues($u['id']))];
 }
 
+/**
+ * Delete the signed-in account (app), or an account by email + password (web page).
+ * The password is always required. Leagues the user owns pass to their longest-standing
+ * organizer; a league with no other organizers is deleted along with all its data.
+ */
+function h_delete_account(): array
+{
+    rate_limit_check();
+    $b = body();
+    $password = (string) ($b['password'] ?? '');
+    $token = bearer_token();
+    if ($token) {
+        $u = require_user();
+        $row = one('SELECT id, password_hash FROM users WHERE id = ?', [$u['id']]);
+    } else {
+        $row = one('SELECT id, password_hash FROM users WHERE email = ?', [strtolower(trim((string) ($b['email'] ?? '')))]);
+    }
+    if (!$row || !password_verify($password, $row['password_hash'])) {
+        rate_limit_fail();
+        throw new HttpError(401, 'Wrong email or password', 'bad_credentials');
+    }
+    $uid = $row['id'];
+    $deleted = [];
+    $transferred = [];
+
+    db()->beginTransaction();
+    try {
+        foreach (q("SELECT l.id, l.name FROM memberships m JOIN leagues l ON l.id = m.league_id WHERE m.user_id = ? AND m.role = 'owner' FOR UPDATE", [$uid])->fetchAll() as $l) {
+            $heir = one("SELECT m.user_id, u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.league_id = ? AND m.user_id <> ? ORDER BY m.created_at, m.user_id LIMIT 1", [$l['id'], $uid]);
+            if ($heir) {
+                q("UPDATE memberships SET role = 'owner' WHERE league_id = ? AND user_id = ?", [$l['id'], $heir['user_id']]);
+                q('UPDATE leagues SET created_by = ? WHERE id = ?', [$heir['user_id'], $l['id']]);
+                $transferred[] = ['name' => $l['name'], 'to' => $heir['name']];
+            } else {
+                foreach (['players', 'events', 'deletions', 'league_settings', 'invites', 'memberships'] as $t) {
+                    q("DELETE FROM $t WHERE league_id = ?", [$l['id']]);
+                }
+                q('DELETE FROM leagues WHERE id = ?', [$l['id']]);
+                $deleted[] = $l['name'];
+            }
+        }
+        // leagues the user created but no longer owns: point at the current owner
+        q("UPDATE leagues l JOIN memberships m ON m.league_id = l.id AND m.role = 'owner' SET l.created_by = m.user_id WHERE l.created_by = ?", [$uid]);
+        q('DELETE FROM invites WHERE created_by = ?', [$uid]);
+        q('DELETE FROM memberships WHERE user_id = ?', [$uid]);
+        q('DELETE FROM sessions WHERE user_id = ?', [$uid]);
+        q('DELETE FROM users WHERE id = ?', [$uid]);
+        db()->commit();
+    } catch (Throwable $t) {
+        if (db()->inTransaction()) db()->rollBack();
+        throw $t;
+    }
+    return ['ok' => true, 'leaguesDeleted' => $deleted, 'leaguesTransferred' => $transferred];
+}
+
 // ───────────────────────── leagues & invites ─────────────────────────
+
+/** League web addresses that would clash with pages on the site. */
+const RESERVED_SLUGS = ['api', 'admin', 'www', 'assets', 'static', 'public', 'login', 'privacy', 'delete-account', 'app', 'fonts', 'help', 'about', 'terms'];
 
 function slugify(string $s): string
 {
@@ -84,7 +142,7 @@ function h_create_league(): array
     $name = str_field($b, 'name', 2, 120);
     $slug = slugify((string) ($b['slug'] ?? $name));
     if (strlen($slug) < 3) throw new HttpError(422, 'Choose a web address of at least 3 letters/numbers', 'validation');
-    if (in_array($slug, ['api', 'admin', 'www', 'assets', 'static', 'public', 'login'], true)) throw new HttpError(409, 'That web address is reserved', 'slug_taken');
+    if (in_array($slug, RESERVED_SLUGS, true)) throw new HttpError(409, 'That web address is reserved', 'slug_taken');
     if (one('SELECT id FROM leagues WHERE slug = ?', [$slug])) throw new HttpError(409, 'That web address is already taken', 'slug_taken');
     $id = uuid4();
     $t = now_ms();

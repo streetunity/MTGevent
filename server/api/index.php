@@ -32,6 +32,7 @@ $routes = [
     ['POST',   '#^auth/login$#',                         fn() => h_login()],
     ['POST',   '#^auth/logout$#',                        fn() => h_logout()],
     ['GET',    '#^me$#',                                 fn() => h_me()],
+    ['POST',   '#^account/delete$#',                     fn() => h_delete_account()],
     ['POST',   '#^leagues$#',                            fn() => h_create_league()],
     ['PATCH',  '#^leagues/([^/]+)$#',                    fn($id) => h_update_league($id)],
     ['GET',    '#^leagues/([^/]+)/members$#',            fn($id) => h_members($id)],
