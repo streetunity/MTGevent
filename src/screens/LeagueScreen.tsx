@@ -1,11 +1,11 @@
 // Shared league: sign in, create/join a league, invite co-hosts, see sync status.
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../data/store';
-import { ApiError, DEFAULT_SERVER, League, Member, prettyCode, publicUrl } from '../sync/api';
+import { ApiError, DEFAULT_SERVER, League, Member, prettyCode, privacyUrl, publicUrl } from '../sync/api';
 import { ago, useSync } from '../sync/SyncContext';
-import { Button, Card, Field, Label, Muted, Segmented } from '../ui/components';
+import { Button, Card, Field, Label, Muted, Segmented, Sheet, styles as ui } from '../ui/components';
 import { colors, space } from '../ui/theme';
 import type { RootStack } from '../../App';
 
@@ -71,6 +71,7 @@ function AuthForm() {
       )}
       {err && <Text style={{ color: colors.danger, marginTop: space(3) }}>{err}</Text>}
       <Button title={busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'} onPress={submit} disabled={!ok || busy} style={{ marginTop: space(4) }} />
+      <PrivacyLink server={server} prefix={mode === 'new' ? 'By creating an account you agree to the ' : 'See our '} />
       <Pressable onPress={() => setAdvanced(!advanced)} style={{ marginTop: space(6) }}>
         <Muted style={{ fontSize: 12 }}>{advanced ? '▾' : '▸'} Server</Muted>
       </Pressable>
@@ -177,6 +178,7 @@ function ChooseLeague() {
       {err && <Text style={{ color: colors.danger, marginTop: space(3) }}>{err}</Text>}
 
       <Button title="Sign out" kind="ghost" onPress={sync.signOut} style={{ marginTop: space(8) }} />
+      <DeleteAccount />
     </>
   );
 }
@@ -308,6 +310,73 @@ function Connected() {
         {!owner && <Button title="Leave league" kind="ghost" onPress={leave} />}
         <Button title={`Sign out (${s.user.email})`} kind="ghost" onPress={() => { sync.disconnect(); sync.signOut(); }} />
       </View>
+      <DeleteAccount owner={owner} />
     </>
+  );
+}
+
+// ───────────────────────── privacy & account deletion ─────────────────────────
+
+function PrivacyLink({ server, prefix = '' }: { server?: string; prefix?: string }) {
+  return (
+    <Text style={{ color: colors.muted, fontSize: 12, marginTop: space(3), textAlign: 'center' }}>
+      {prefix}
+      <Text style={{ color: colors.accent, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(privacyUrl(server?.trim() || DEFAULT_SERVER))}>
+        privacy policy
+      </Text>.
+    </Text>
+  );
+}
+
+function DeleteAccount({ owner }: { owner?: boolean }) {
+  const sync = useSync();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string>();
+  const close = () => { setOpen(false); setPassword(''); setErr(undefined); };
+
+  const confirm = async () => {
+    setBusy(true); setErr(undefined);
+    try {
+      const r = await sync.deleteAccount(password);
+      close();
+      const lines = [
+        ...r.leaguesTransferred.map((l) => `• ${l.name} now belongs to ${l.to}.`),
+        ...r.leaguesDeleted.map((n) => `• ${n} was deleted (no other organizers).`),
+      ];
+      Alert.alert('Account deleted', `${lines.length ? lines.join('\n') + '\n\n' : ''}Everything on this phone is still here. To remove it too, use Settings → Reset everything.`);
+    } catch (e) {
+      setErr(msg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: space(8), alignItems: 'center' }}>
+      <PrivacyLink server={sync.session?.server} prefix="Read our " />
+      <Pressable onPress={() => setOpen(true)} hitSlop={8} style={{ marginTop: space(4) }}>
+        <Text style={{ color: colors.danger, fontWeight: '600' }}>Delete my account</Text>
+      </Pressable>
+      <Sheet visible={open} onClose={close}>
+        <Text style={ui.sheetTitle}>Delete your account?</Text>
+        <Muted style={{ marginBottom: space(2) }}>
+          This permanently deletes your name, email, password and sign-ins on mtg-event.com, and removes you from every league.
+        </Muted>
+        <Muted style={{ marginBottom: space(2) }}>
+          {owner
+            ? 'Leagues you own pass to their longest-standing co-host. A league with no co-hosts is deleted along with all its players, events and results — the players’ website for it goes away too.'
+            : 'If you own any leagues, they pass to their longest-standing co-host. A league with no co-hosts is deleted along with all its data.'}
+        </Muted>
+        <Muted style={{ marginBottom: space(3) }}>Your data on this phone stays here. This can’t be undone.</Muted>
+        <Field value={password} onChangeText={setPassword} placeholder="Your password" secureTextEntry autoCapitalize="none" autoCorrect={false} />
+        {err && <Text style={{ color: colors.danger, marginTop: space(2) }}>{err}</Text>}
+        <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(4) }}>
+          <Button title="Cancel" kind="secondary" onPress={close} style={{ flex: 1 }} />
+          <Button title={busy ? 'Deleting…' : 'Delete'} kind="danger" onPress={confirm} disabled={!password || busy} style={{ flex: 1 }} />
+        </View>
+      </Sheet>
+    </View>
   );
 }

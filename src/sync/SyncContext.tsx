@@ -29,6 +29,8 @@ interface SyncCtx {
   signIn: (email: string, password: string, server?: string) => Promise<League[]>;
   register: (name: string, email: string, password: string, invite?: string, server?: string) => Promise<League[]>;
   signOut: () => Promise<void>;
+  /** permanently delete the signed-in account on the server; this phone's data stays */
+  deleteAccount: (password: string) => Promise<{ leaguesDeleted: string[]; leaguesTransferred: Array<{ name: string; to: string }> }>;
   myLeagues: () => Promise<League[]>;
   /** connect this phone to a league. mode = what to do with data already on the phone */
   connect: (league: League, mode: 'merge' | 'replace', isNewLeague?: boolean) => Promise<void>;
@@ -164,6 +166,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     setError(undefined);
   }, [setSession]);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    const s = sessionRef.current;
+    if (!s) throw new ApiError(401, 'Not signed in', 'unauthorized');
+    const r = await new Api(s.server, s.token).deleteAccount(password);
+    setSession(undefined);
+    setStatus('off');
+    setError(undefined);
+    return { leaguesDeleted: r.leaguesDeleted, leaguesTransferred: r.leaguesTransferred };
+  }, [setSession]);
+
   const myLeagues = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return [];
@@ -210,7 +222,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   const value: SyncCtx = {
     session, status, error, pending, device, api,
-    signIn, register, signOut, myLeagues, connect, disconnect, updateLeague, syncNow,
+    signIn, register, signOut, deleteAccount, myLeagues, connect, disconnect, updateLeague, syncNow,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

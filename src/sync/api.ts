@@ -67,6 +67,9 @@ export class Api {
   }
   logout() { return this.req<{ ok: true }>('POST', 'auth/logout', {}); }
   me() { return this.req<{ user: User; leagues: League[] }>('GET', 'me'); }
+  deleteAccount(password: string) {
+    return this.req<{ ok: true; leaguesDeleted: string[]; leaguesTransferred: Array<{ name: string; to: string }> }>('POST', 'account/delete', { password });
+  }
 
   createLeague(name: string, slug?: string) { return this.req<{ league: League }>('POST', 'leagues', { name, ...(slug ? { slug } : {}) }); }
   updateLeague(id: string, patch: { name?: string; isPublic?: boolean }) { return this.req<{ league: Omit<League, 'role'> }>('PATCH', `leagues/${id}`, patch); }
@@ -88,3 +91,5 @@ export class Api {
 export const prettyCode = (c: string) => (c.length === 8 ? `${c.slice(0, 4)}-${c.slice(4)}` : c);
 /** Public page for a league (the website is served from the same domain as the API). */
 export const publicUrl = (server: string, slug: string) => `${server.replace(/\/api\/?$/, '').replace(/\/+$/, '')}/${slug}`;
+/** The website's privacy policy page. */
+export const privacyUrl = (server: string = DEFAULT_SERVER) => publicUrl(server, 'privacy');
