@@ -25,7 +25,28 @@ db.execSync(`
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
   );
+  -- "tombstones": a record of what was deleted and when, so a future sync can
+  -- tell other devices to delete it too instead of copying it back
+  CREATE TABLE IF NOT EXISTS deletions (
+    id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    deleted_at INTEGER NOT NULL,
+    PRIMARY KEY (kind, id)
+  );
 `);
+
+function tombstone(kind: 'event' | 'player', id: string) {
+  db.runSync(
+    'INSERT INTO deletions (id, kind, deleted_at) VALUES (?, ?, ?) ON CONFLICT(kind, id) DO UPDATE SET deleted_at = excluded.deleted_at',
+    id, kind, Date.now(),
+  );
+}
+
+export function loadDeletions(since = 0): Array<{ id: string; kind: 'event' | 'player'; deletedAt: number }> {
+  return db
+    .getAllSync<{ id: string; kind: 'event' | 'player'; deleted_at: number }>('SELECT * FROM deletions WHERE deleted_at > ? ORDER BY deleted_at', since)
+    .map((r) => ({ id: r.id, kind: r.kind, deletedAt: r.deleted_at }));
+}
 
 // migrations
 const cols = db.getAllSync<{ name: string }>('PRAGMA table_info(players)').map((c) => c.name);
@@ -48,7 +69,10 @@ export function savePlayer(p: Player) {
 }
 
 export function deletePlayer(id: string) {
-  db.runSync('DELETE FROM players WHERE id = ?', id);
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM players WHERE id = ?', id);
+    tombstone('player', id);
+  });
 }
 
 export function loadEvents(): TournamentEvent[] {
@@ -65,7 +89,10 @@ export function saveEvent(ev: TournamentEvent) {
 }
 
 export function deleteEvent(id: string) {
-  db.runSync('DELETE FROM events WHERE id = ?', id);
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM events WHERE id = ?', id);
+    tombstone('event', id);
+  });
 }
 
 export function getSetting<T>(key: string): T | undefined {
@@ -82,7 +109,10 @@ export function clearAllLegacy() {
 }
 
 export function deleteAllEvents() {
-  db.runSync('DELETE FROM events');
+  db.withTransactionSync(() => {
+    for (const r of db.getAllSync<{ id: string }>('SELECT id FROM events')) tombstone('event', r.id);
+    db.runSync('DELETE FROM events');
+  });
 }
 
 /** Wipe players, events and saved settings. */
@@ -91,6 +121,8 @@ export function resetAll() {
     db.runSync('DELETE FROM events');
     db.runSync('DELETE FROM players');
     db.runSync('DELETE FROM settings');
+    // a full reset starts this device over from scratch, so its delete history goes too
+    db.runSync('DELETE FROM deletions');
   });
 }
 
