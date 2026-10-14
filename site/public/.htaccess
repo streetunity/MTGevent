@@ -1,0 +1,7 @@
+# MTG Event — send league addresses (mtg-event.com/<league>) to the league page.
+# The API (/api) and SSL renewals (/.well-known) are left alone; real files are served as-is.
+RewriteEngine On
+RewriteRule ^(api|\.well-known)(/|$) - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^[A-Za-z0-9-]+/?$ league.html [L]

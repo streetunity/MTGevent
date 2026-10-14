@@ -27,7 +27,8 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "test": "tsx --test src/core/core.test.ts src/core/legacy.test.ts src/core/seasons.test.ts src/data/history.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:site": "esbuild site/src/app.ts --bundle --minify --format=iife --target=es2019 --outfile=site/public/app.js"
   },
   "private": true
 }

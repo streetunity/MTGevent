@@ -37,3 +37,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# website bundle (built with: npm run build:site)
+site/public/app.js
