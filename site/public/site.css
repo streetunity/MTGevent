@@ -9,7 +9,7 @@ body {
   margin: 0; min-height: 100vh;
   background: radial-gradient(1200px 500px at 50% -10%, #0f3a37 0%, var(--bg) 60%) fixed, var(--bg);
   color: var(--text);
-  font: 16px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 a { color: inherit; text-decoration: none; }
 h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
@@ -28,6 +28,7 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
 .tabs a.on { color: var(--text); border-color: var(--accent); }
 
 main { max-width: 720px; margin: 0 auto; padding: 18px 16px 40px; }
+footer a { text-decoration: underline; text-underline-offset: 2px; }
 footer { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; color: var(--muted); font-size: 12px; display: grid; gap: 6px; text-align: center; }
 
 /* building blocks */
@@ -120,3 +121,20 @@ footer { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; color: var(--mu
 .rivals .card { margin: 0; }
 .rivals h3 { text-transform: none; letter-spacing: 0; color: var(--text); font-size: 18px; margin: 4px 0 0; }
 @media (max-width: 420px) { .rivals { grid-template-columns: 1fr; } }
+
+/* text pages (privacy, delete account) */
+.doc { line-height: 1.6; }
+.doc h2 { font-size: 19px; margin: 30px 0 8px; }
+.doc h3 { margin: 18px 0 6px; font-size: 13px; }
+.doc p { margin: 10px 0; }
+.doc ul { margin: 8px 0; padding-left: 22px; }
+.doc li { margin: 5px 0; }
+.doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.doc .sub { margin-top: 0; }
+.form { margin-top: 18px; }
+.check { display: flex; gap: 10px; align-items: center; margin: 6px 0 4px; font-weight: 600; cursor: pointer; }
+.check input { width: 20px; height: 20px; accent-color: var(--danger); }
+.error { color: var(--danger); font-weight: 600; min-height: 1.4em; margin: 8px 0; }
+button.btn { border: 0; font: inherit; font-weight: 800; cursor: pointer; width: 100%; padding: 14px 18px; }
+button.btn:disabled { opacity: .4; cursor: default; }
+.btn.danger { background: var(--danger); color: #fff; }

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061214">
+<meta name="robots" content="noindex">
+<title>Delete your account · MTG Event</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+<link rel="stylesheet" href="/site.css?v=2">
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="/" aria-label="MTG Event home">🃏</a>
+    <h1>Delete your account</h1>
+  </div>
+</header>
+<main class="doc">
+  <div id="form-view">
+    <p>This permanently deletes an <b>MTG Event organizer account</b>. You can also do this in the app under
+    <b>Settings → Shared league → Delete my account</b>.</p>
+
+    <section class="card">
+      <h3 style="margin-top:0">What gets deleted</h3>
+      <ul>
+        <li>Your name, email, password and every signed-in phone.</li>
+        <li>Your place in every league you belong to.</li>
+        <li>Leagues you own pass to their longest-standing co-host. A league with no other organizers is deleted
+        along with all its players, events and results.</li>
+      </ul>
+      <p class="muted" style="margin-bottom:0">Players don’t have accounts. To change or remove a player’s name, ask the league organizer.
+      See the <a href="/privacy">privacy policy</a> for details.</p>
+    </section>
+
+    <form id="f" class="form" autocomplete="on">
+      <label class="find"><span>Email</span><input id="email" type="email" required autocomplete="email" placeholder="you@example.com"></label>
+      <label class="find"><span>Password</span><input id="password" type="password" required autocomplete="current-password"></label>
+      <label class="check"><input id="sure" type="checkbox"> I understand this can’t be undone.</label>
+      <p id="err" class="error" role="alert"></p>
+      <button id="go" class="btn danger" type="submit" disabled>Delete my account</button>
+    </form>
+  </div>
+
+  <section id="done-view" class="empty" hidden>
+    <div class="big">✅</div>
+    <h2>Your account has been deleted</h2>
+    <div id="done-details"></div>
+    <p>If the app is still signed in on a phone, it will sign itself out the next time it syncs. League data saved on
+    that phone stays on it until you remove it.</p>
+  </section>
+</main>
+<footer>
+  <span><a href="/privacy">Privacy</a> · <a href="/delete-account">Delete an organizer account</a></span>
+  <span>Not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.</span>
+</footer>
+<script>
+(function () {
+  var f = document.getElementById('f'), go = document.getElementById('go'), err = document.getElementById('err');
+  var email = document.getElementById('email'), pw = document.getElementById('password'), sure = document.getElementById('sure');
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function update() { go.disabled = !(sure.checked && email.value.indexOf('@') > 0 && pw.value.length > 0); }
+  [email, pw, sure].forEach(function (el) { el.addEventListener('input', update); el.addEventListener('change', update); });
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (go.disabled) return;
+    err.textContent = '';
+    go.disabled = true; go.textContent = 'Deleting…';
+    fetch('/api/account/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value.trim(), password: pw.value })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.data.error || 'Something went wrong. Please try again.');
+      var d = r.data, html = '';
+      if (d.leaguesTransferred && d.leaguesTransferred.length) {
+        html += '<p>Handed over: ' + d.leaguesTransferred.map(function (l) { return '<b>' + esc(l.name) + '</b> → ' + esc(l.to); }).join(', ') + '.</p>';
+      }
+      if (d.leaguesDeleted && d.leaguesDeleted.length) {
+        html += '<p>Deleted (no other organizers): ' + d.leaguesDeleted.map(function (n) { return '<b>' + esc(n) + '</b>'; }).join(', ') + '.</p>';
+      }
+      document.getElementById('done-details').innerHTML = html;
+      document.getElementById('form-view').hidden = true;
+      document.getElementById('done-view').hidden = false;
+      window.scrollTo(0, 0);
+    }).catch(function (e2) {
+      err.textContent = e2.message === 'Failed to fetch' ? 'Can’t reach the server. Check your connection and try again.' : e2.message;
+      go.textContent = 'Delete my account';
+      update();
+    });
+  });
+})();
+</script>
+</body>
+</html>
