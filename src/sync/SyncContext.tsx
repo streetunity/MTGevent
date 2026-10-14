@@ -51,7 +51,15 @@ function deviceTag(): string {
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const store = useStore();
-  const [session, setSessionState] = useState<Session | undefined>(() => db.getSetting<Session>(KEY));
+  const [session, setSessionState] = useState<Session | undefined>(() => {
+    const s = db.getSetting<Session>(KEY) ?? undefined;
+    // Seasons set up before sharing existed were never marked for upload. If this phone owns
+    // the league and has never synced seasons, share them now.
+    if (s?.league?.role === 'owner' && !db.getSetting('seasonsMeta') && db.getSetting<{ seasons?: unknown[] }>('seasons')?.seasons?.length) {
+      db.setSetting('seasonsMeta', { updatedAt: Date.now(), dirty: true });
+    }
+    return s;
+  });
   const [status, setStatus] = useState<SyncStatus>(session?.league ? 'idle' : 'off');
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(0);
@@ -171,10 +179,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       db.setSetting('seasonsMeta', null);
     } else {
       db.markAllDirty(); // upload everything already on this phone
-      // joining an existing league: its season setup wins over this phone's
-      if (!isNewLeague) {
-        const meta = db.getSetting<{ updatedAt: number; dirty: boolean }>('seasonsMeta');
-        if (meta) db.setSetting('seasonsMeta', { ...meta, dirty: false });
+      const meta = db.getSetting<{ updatedAt: number; dirty: boolean }>('seasonsMeta');
+      const hasSeasons = !!db.getSetting<{ seasons?: unknown[] }>('seasons')?.seasons?.length;
+      if (isNewLeague) {
+        // a brand-new league takes this phone's season setup
+        if (hasSeasons) db.setSetting('seasonsMeta', { updatedAt: Date.now(), dirty: true });
+      } else {
+        // joining an existing league: its season setup wins over this phone's
+        db.setSetting('seasonsMeta', { updatedAt: meta?.updatedAt ?? 0, dirty: false });
       }
     }
     store.reload();
