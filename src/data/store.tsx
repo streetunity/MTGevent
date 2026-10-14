@@ -36,6 +36,8 @@ interface Store {
   saveSeasons: (s: SeasonSettings) => void;
   lastSettings: () => Partial<EventSettings> | undefined;
   rememberSettings: (s: EventSettings) => void;
+  /** re-read everything from the database (after a sync downloaded changes) */
+  reload: () => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -54,7 +56,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const saveSeasons = useCallback((s: SeasonSettings) => {
     const ext = extendSeasons(s);
     db.setSetting('seasons', ext);
+    // a deliberate change → share it with the league on the next sync
+    db.setSetting('seasonsMeta', { updatedAt: Date.now(), dirty: true });
     setSeasons(ext);
+  }, []);
+  const reload = useCallback(() => {
+    setPlayers(db.loadPlayers());
+    setEvents(db.loadEvents());
+    setSeasons(extendSeasons(db.getSetting<SeasonSettings>('seasons') ?? DEFAULT_SEASONS));
   }, []);
   // roll over to the next season if the app was left open (or in the background) past a season's end
   useEffect(() => {
@@ -195,6 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSetting: (key, value) => db.setSetting(key, value),
     lastSettings: () => db.getSetting<Partial<EventSettings>>('lastSettings'),
     rememberSettings: (s) => db.setSetting('lastSettings', { ...s, autoRounds: true }),
+    reload,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

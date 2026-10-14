@@ -12,6 +12,9 @@ import PlayerScreen from './src/screens/PlayerScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ImportLegacyScreen from './src/screens/ImportLegacyScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import LeagueScreen from './src/screens/LeagueScreen';
+import { SyncProvider } from './src/sync/SyncContext';
+import { withRunnerBanner } from './src/sync/RunnerBanner';
 import { colors } from './src/ui/theme';
 
 export type RootStack = {
@@ -23,9 +26,12 @@ export type RootStack = {
   Leaderboard: undefined;
   ImportLegacy: undefined;
   Settings: undefined;
+  League: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStack>();
+// live events show which phone is running them (shared leagues only)
+const LiveEventScreen = withRunnerBanner(EventScreen);
 
 const theme = {
   ...DarkTheme,
@@ -36,19 +42,22 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
+        <SyncProvider>
         <NavigationContainer theme={theme}>
           <StatusBar style="light" />
           <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text, headerShadowVisible: false }}>
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'MTG Events' }} />
             <Stack.Screen name="Setup" component={SetupScreen} options={{ title: 'New event' }} />
-            <Stack.Screen name="Event" component={EventScreen} options={{ title: 'Event' }} />
+            <Stack.Screen name="Event" component={LiveEventScreen} options={{ title: 'Event' }} />
             <Stack.Screen name="Roster" component={RosterScreen} options={{ title: 'Players' }} />
             <Stack.Screen name="Player" component={PlayerScreen} options={{ title: 'Player' }} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
             <Stack.Screen name="ImportLegacy" component={ImportLegacyScreen} options={{ title: 'Import legacy stats' }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="League" component={LeagueScreen} options={{ title: 'Shared league' }} />
           </Stack.Navigator>
         </NavigationContainer>
+        </SyncProvider>
       </StoreProvider>
     </SafeAreaProvider>
   );
