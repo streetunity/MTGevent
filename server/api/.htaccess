@@ -1,0 +1,12 @@
+# Route every request under /api/ to index.php, and never serve lib/ directly.
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^lib/ - [F,L]
+
+# pass the Authorization header through to PHP (needed on many cPanel servers)
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
