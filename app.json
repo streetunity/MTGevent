@@ -14,11 +14,18 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.WAKE_LOCK"
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1
     },
     "plugins": [
       "expo-sqlite",
-      ["expo-notifications", { "color": "#3FA39B" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#3FA39B"
+        }
+      ],
+      "./plugins/withReleaseSigning"
     ]
   }
 }
