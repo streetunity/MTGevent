@@ -100,7 +100,7 @@ export const DEFAULT_SETTINGS: EventSettings = {
   structure: 'swiss',
   bestOf: 3,
   rounds: 3,
-  autoRounds: true,
+  autoRounds: false, // house default: a fixed 3 rounds; "Use recommended" switches to auto
   roundMinutes: 50,
   warnMinutes: 10,
   scoring: 'house',

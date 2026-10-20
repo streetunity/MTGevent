@@ -202,8 +202,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     saveSeasons,
     getSetting: (key) => db.getSetting(key),
     setSetting: (key, value) => db.setSetting(key, value),
-    lastSettings: () => db.getSetting<Partial<EventSettings>>('lastSettings'),
-    rememberSettings: (s) => db.setSetting('lastSettings', { ...s, autoRounds: true }),
+    lastSettings: () => {
+      const saved = db.getSetting<Partial<EventSettings> & { v?: number }>('lastSettings');
+      if (!saved) return undefined;
+      const { v, ...rest } = saved;
+      // settings saved by older versions always had auto rounds forced on; start those at a fixed 3
+      return v === 2 ? rest : { ...rest, autoRounds: false, rounds: 3 };
+    },
+    // remember the organizer's choices (including a fixed round count) for the next event
+    rememberSettings: (s) => db.setSetting('lastSettings', { ...s, v: 2 }),
     reload,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -137,11 +137,15 @@ export default function SetupScreen({ route, navigation }: Props) {
             <Label>Rounds</Label>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
               <Stepper value={s.rounds} min={1} max={15} onChange={(n) => set({ rounds: n })} />
-              {s.autoRounds ? <Muted>Auto ({ev.players.length} players)</Muted> : (
+              {s.autoRounds ? (
+                <Pressable onPress={() => set({ rounds: s.rounds })}>
+                  <Muted>Auto for {ev.players.length} players · <Text style={{ color: colors.accent }}>keep {s.rounds}</Text></Muted>
+                </Pressable>
+              ) : rec !== s.rounds && ev.players.length >= 2 ? (
                 <Pressable onPress={() => save({ ...ev, settings: { ...s, autoRounds: true, rounds: rec } })}>
                   <Text style={{ color: colors.accent }}>Use recommended ({rec})</Text>
                 </Pressable>
-              )}
+              ) : null}
             </View>
 
             <Label>Round timer</Label>
