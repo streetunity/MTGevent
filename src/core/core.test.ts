@@ -144,3 +144,24 @@ test('timer pause / add time', () => {
   ev = addTime(ev, 5 * 60_000);
   assert.equal(timerRemainingMs(currentRound(ev)!, t0), 54 * 60_000);
 });
+
+test('events default to a fixed 3 rounds, whatever the turnout', () => {
+  const ev = makeEvent(12);
+  assert.equal(ev.settings.autoRounds, false);
+  assert.equal(ev.settings.rounds, 3);
+  // finishing round 3 ends the event instead of pairing a 4th
+  let run = startEvent(ev);
+  for (let r = 1; r <= 3; r++) {
+    run = beginRound(run);
+    for (const x of currentRound(run)!.matches) if (x.p2) run = reportResult(run, x.id, 2, 0);
+    run = completeRound(run);
+  }
+  assert.equal(run.status, 'complete');
+  assert.equal(run.rounds.length, 3);
+});
+
+test('"use recommended" still follows the player count', () => {
+  let ev = createEvent('Auto', { autoRounds: true });
+  for (let i = 0; i < 12; i++) ev = addPlayer(ev, `p${i}`);
+  assert.equal(ev.settings.rounds, 4);
+});
